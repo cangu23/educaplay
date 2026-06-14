@@ -1,0 +1,15 @@
+{
+  "name": "eduplay-api",
+  "version": "1.0.0",
+  "main": "api/index.js",
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.0.3",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  },
+  "scripts": { "start": "node api/index.js" }
+}

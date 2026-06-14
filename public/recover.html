@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eduplay - Recuperar Cuenta</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1>RECUPERACIÓN</h1>
+            <p class="login-subtitle">Restablecer contraseña</p>
+
+            <div id="msg" style="font-size: 0.9rem; margin-bottom: 15px; min-height: 20px;"></div>
+
+            <form id="recoverForm">
+                <div class="form-group">
+                    <label for="username">Nombre de Usuario</label>
+                    <input type="text" id="username" placeholder="Nombre de Usuario" required>
+                </div>
+                <div class="form-group">
+                    <label for="cedula">Cédula de Identidad</label>
+                    <input type="text" id="cedula" placeholder="Cédula de Identidad" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">Nueva Contraseña</label>
+                    <input type="password" id="newPassword" placeholder="Nueva Contraseña" required>
+                </div>
+                <button type="submit" id="recoverBtn" class="btn btn-primary" style="width: 100%;">Actualizar Contraseña</button>
+            </form>
+            <p style="text-align: center; font-size: 0.9rem; margin-top: 20px; color: var(--text-muted);">
+                <a href="index.html" style="color: var(--secondary-color); text-decoration: none;">← Volver al inicio</a>
+            </p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('recoverForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('recoverBtn');
+            const msgDiv = document.getElementById('msg');
+            btn.disabled = true;
+            btn.innerText = "PROCESANDO...";
+
+            try {
+                const res = await fetch('/api/auth/recover-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        cedula: document.getElementById('cedula').value,
+                        newPassword: document.getElementById('newPassword').value
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    msgDiv.style.color = "var(--success-color)";
+                    msgDiv.innerText = "¡Contraseña actualizada! Redirigiendo...";
+                    setTimeout(() => window.location.href = 'index.html', 2000);
+                } else {
+                    throw new Error(data.error || "Error al recuperar");
+                }
+            } catch (error) {
+                msgDiv.style.color = "var(--danger-color)";
+                msgDiv.innerText = error.message;
+                btn.disabled = false;
+                btn.innerText = "Actualizar Contraseña";
+            }
+        };
+    </script>
+</body>
+</html>

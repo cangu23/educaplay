@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Control Docente - Eduplay</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <img src="assets/logo.png" alt="Eduplay" class="logo-img">
+        <nav>
+            <span id="nav-user-name">PROFESOR</span>
+            <a href="resultados.html" class="btn btn-secondary">Reportes</a>
+            <a href="profile.html" class="btn btn-secondary">Perfil</a>
+            <button class="btn btn-danger" onclick="localStorage.clear(); location.href='index.html'">Cerrar Sesión</button>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1 class="hero-title" style="font-size: 2rem; text-align: left;">Monitor de Ciberseguridad</h1>
+        
+        <!-- Tarjetas de Métricas -->
+        <div class="stats-container" id="stats-summary">
+            <div class="stat-card">
+                <div class="trend">ACTIVOS AHORA</div>
+                <div class="stat-value" id="total-estudiantes">0</div>
+                <p>Estudiantes vinculados</p>
+            </div>
+            <div class="stat-card">
+                <div class="trend" style="color: var(--primary-color)">PROMEDIO CLASE</div>
+                <div class="stat-value" id="promedio-global">0</div>
+                <p>Puntos de rendimiento</p>
+            </div>
+            <div class="stat-card">
+                <div class="trend" style="color: var(--danger-color)">VULNERABILIDADES</div>
+                <div class="stat-value" id="total-errores">0</div>
+                <p>Errores detectados</p>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Gestión de Salas -->
+            <section class="widget" style="grid-column: span 2;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; border: none;">Salas de Entrenamiento</h2>
+                    <button onclick="location.href='salas.html'" class="btn btn-primary" style="padding: 5px 15px;">+ Crear Sala</button>
+                </div>
+                <div id="rooms-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
+                    <!-- Salas cargadas vía JS -->
+                </div>
+            </section>
+
+            <!-- Gráfico de Análisis -->
+            <section class="widget" style="grid-column: span 2;">
+                <h2>Análisis Táctico por Nivel (Aciertos vs Errores)</h2>
+                <div class="chart-wrapper">
+                    <canvas id="analyticsChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Tabla de Alumnos -->
+            <section class="widget" style="grid-column: span 2;">
+                <h2>Estado del Batallón (Estudiantes)</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Estudiante</th>
+                            <th>Nivel Máx</th>
+                            <th>Score Total</th>
+                            <th>Precisión</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="students-table-body">
+                        <!-- Cargado vía JS -->
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modal de Detalle Estudiante -->
+    <div id="detail-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 700px; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: var(--card-bg); border-bottom: 1px solid var(--border-color); padding: 20px;">
+                <h2 id="detail-student-name" style="margin: 0; font-size: 1.2rem;">Detalle del Agente</h2>
+            </div>
+            <div id="student-levels-detail" class="modal-body" style="padding: 20px; overflow-y: auto; flex-grow: 1;">
+                <!-- Contenido generado dinámicamente -->
+            </div>
+            <div class="modal-footer" style="padding: 15px; border-top: 1px solid var(--border-color); background: var(--card-bg);">
+                <button onclick="closeDetailModal()" class="btn btn-secondary" style="width: 100%;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/teacher_dashboard.js"></script>
+</body>
+</html>

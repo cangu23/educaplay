@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>Perfil de Usuario - Eduplay</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
+    <header>
+        <img src="assets/logo.png" alt="Eduplay" class="logo-img" style="cursor:pointer;" onclick="window.location.href='index.html'">
+        <div class="search-container" style="position: relative; flex: 0 1 400px; margin: 0 30px;">
+            <input type="text" id="search-input" placeholder="Buscar agentes..." 
+                style="width: 100%; padding: 10px 20px; border-radius: 50px; border: 1px solid #262626; background: #050505; color: var(--text-main); font-size: 0.9rem;">
+            <div id="search-results" class="widget" 
+                style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1001; margin-top: 5px; display: none; padding: 10px; max-height: 300px; overflow-y: auto; text-align: left;">
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div id="notifications-icon" style="position: relative; cursor: pointer; font-size: 1.2rem;">
+            🔔
+            <div id="notif-badge" style="position: absolute; top: -5px; right: -5px; background: var(--danger-color); color: white; font-size: 0.7rem; width: 18px; height: 18px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: bold; border: 2px solid var(--card-bg);">0</div>
+        </div>
+            <nav id="main-nav" style="display: flex; gap: 10px;">
+            <!-- La navegación se cargará dinámicamente según el rol del usuario -->
+        </nav>
+        </div>
+    </header>
+
+    <main class="container" style="flex-grow: 1;">
+        <section class="widget profile-container">
+            <div class="profile-avatar-large" id="profile-avatar-container" style="position: relative;">?</div>
+            <div class="profile-info">
+                <h1 id="profile-username">Cargando...</h1>
+                <div id="rank-display" class="rank-badge">IDENTIFICANDO RANGO...</div>
+                <p id="profile-role" style="font-weight: 600; margin-top: 5px; color: var(--text-muted);"></p>
+                <p id="profile-description" style="margin-top: 10px;"></p>
+                <p style="margin-top: 15px;">Puntos Totales: <span id="profile-total-score" style="font-weight: bold; color: var(--accent-color);">0</span></p>
+                <div id="profile-feedback" style="margin-top: 10px; font-weight: bold;"></div>
+            </div>
+
+            <!-- Panel de Edición Estilizado -->
+            <div id="edit-profile-fields" style="width: 100%; max-width: 500px; margin-top: 30px; display: none; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                <h3 style="font-size: 0.9rem; color: var(--primary-color); text-align: left; margin-bottom: 15px;">CONFIGURACIÓN DE AGENTE</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Enlace de Imagen de Perfil</label>
+                        <input type="text" id="edit-avatar-url" placeholder="https://ejemplo.com/mi-foto.png" style="background: #000;">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Biografía del Agente</label>
+                        <textarea id="edit-desc" maxlength="150" style="width: 100%; background: #000; color: #fff; border: 1px solid #262626; padding: 10px; border-radius: 8px; height: 80px; resize: none;"></textarea>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick="saveProfile()" style="flex: 2;">ACTUALIZAR PROTOCOLO</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('edit-avatar-url').value=''" style="flex: 1;">LIMPIAR</button>
+                </div>
+            </div>
+
+            <div id="friend-actions" style="margin-top: 20px; display: flex; gap: 10px;">
+                <!-- Botones de amistad se cargarán aquí -->
+            </div>
+            <div id="friend-feedback" style="margin-top: 10px; color: var(--success-color);"></div>
+        </section>
+
+        <section class="widget" style="margin-top: 30px;">
+            <h2>Medallas de Honor</h2>
+            <div class="achievement-grid" id="achievement-list">
+                <div class="achievement-card" id="ach-1">
+                    <i>🔰</i>
+                    <strong>Recluta</strong>
+                    <span>Primer inicio de sesión</span>
+                </div>
+                <div class="achievement-card" id="ach-2">
+                    <i>⚡</i>
+                    <strong>Hacker</strong>
+                    <span>Superar 10k puntos</span>
+                </div>
+                <div class="achievement-card" id="ach-3">
+                    <i>🏆</i>
+                    <strong>Elite</strong>
+                    <span>Superar 25k puntos</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="widget" style="margin-top: 30px;">
+            <h2>Amigos</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="friends-list">
+                    <!-- Lista de amigos se cargará aquí -->
+                </tbody>
+            </table>
+        </section>
+
+        <section class="widget" style="margin-top: 30px;">
+            <h2>Solicitudes de Amistad Pendientes</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>De</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="pending-requests-list">
+                    <!-- Solicitudes pendientes se cargarán aquí -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Eduplay. Todos los derechos reservados.</p>
+    </footer>
+
+    <script>
+        const loggedInUserId = localStorage.getItem('userId');
+        const loggedInUserRole = localStorage.getItem('rol');
+        const urlParams = new URLSearchParams(window.location.search);
+        const profileUserId = urlParams.get('id') || loggedInUserId; // Si no hay ID en URL, muestra el propio perfil
+
+        if (!loggedInUserId) {
+            window.location.href = 'index.html';
+        }
+
+        // Cargar navegación según el rol
+        const mainNav = document.getElementById('main-nav');
+        if (loggedInUserRole === 'estudiante') {
+            mainNav.innerHTML = `
+                <a href="student_dashboard.html" class="btn btn-secondary">Dashboard</a>
+                <a href="profile.html" class="btn btn-secondary">Mi Perfil</a>
+                <a href="#" class="btn btn-danger" onclick="logout()">Cerrar Sesión</a>
+            `;
+        } else if (loggedInUserRole === 'profesor') {
+            mainNav.innerHTML = `
+                <a href="teacher_dashboard.html" class="btn btn-secondary">Dashboard</a>
+                <a href="profile.html" class="btn btn-secondary">Mi Perfil</a>
+                <a href="#" class="btn btn-danger" onclick="logout()">Cerrar Sesión</a>
+            `;
+        }
+
+        function getRank(score) {
+            if (score >= 50000) return { title: 'LEYENDA DEL NÚCLEO', color: '#ff0055' };
+            if (score >= 25000) return { title: 'AGENTE MAESTRO', color: '#facc15' };
+            if (score >= 10000) return { title: 'AGENTE ELITE', color: '#a855f7' };
+            if (score >= 5000) return { title: 'OPERADOR SENIOR', color: '#38bdf8' };
+            return { title: 'RECLUTA JUNIOR', color: '#a1a1aa' };
+        }
+
+        async function loadProfile() {
+            const res = await fetch(`/api/user/${profileUserId}`);
+            const user = await res.json();
+            
+            if (!user || user.error) {
+                document.getElementById('profile-username').innerText = 'Agente no encontrado';
+                return;
+            }
+
+            const avatarContainer = document.getElementById('profile-avatar-container');
+            if (user.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('data:image'))) {
+                avatarContainer.innerHTML = `<img src="${user.avatar}" alt="Avatar">`;
+            } else if (user.avatar === 'agente_1') {
+                avatarContainer.innerHTML = `<img src="assets/logo.png" alt="Avatar" style="opacity:0.5; filter:grayscale(1);">`;
+            } else {
+                avatarContainer.innerText = user.username.charAt(0).toUpperCase();
+            }
+
+            document.getElementById('profile-username').innerText = user.username;
+            document.getElementById('profile-role').innerText = user.rol.charAt(0).toUpperCase() + user.rol.slice(1);
+            document.getElementById('profile-description').innerText = user.descripcion || 'Sin descripción.';
+            document.getElementById('profile-total-score').innerText = user.total_score;
+
+            // Calcular y mostrar rango
+            const rank = getRank(user.total_score);
+            const rankDisplay = document.getElementById('rank-display');
+            rankDisplay.innerText = rank.title;
+            rankDisplay.style.borderColor = rank.color;
+            rankDisplay.style.color = rank.color;
+
+            // Actualizar Logros
+            if (user.total_score > 0) document.getElementById('ach-1').classList.add('unlocked');
+            if (user.total_score >= 10000) document.getElementById('ach-2').classList.add('unlocked');
+            if (user.total_score >= 25000) document.getElementById('ach-3').classList.add('unlocked');
+
+            // Si es mi propio perfil, mostrar campos de edición
+            if (profileUserId == loggedInUserId) {
+                document.getElementById('edit-profile-fields').style.display = 'block';
+                document.getElementById('edit-avatar-url').value = user.avatar || '';
+                document.getElementById('edit-desc').value = user.descripcion || '';
+            }
+
+            // Cargar acciones de amistad
+            const friendActionsDiv = document.getElementById('friend-actions');
+            if (profileUserId != loggedInUserId) {
+                // Verificar estado de amistad
+                const friendStatusRes = await fetch(`/api/friends/status/${loggedInUserId}/${profileUserId}`); // Nuevo endpoint necesario
+                const friendStatus = await friendStatusRes.json();
+
+                if (friendStatus.status === 'not_friends') {
+                    friendActionsDiv.innerHTML = `<button class="btn btn-primary" onclick="sendFriendRequest(${profileUserId})">Enviar Solicitud de Amistad</button>`;
+                } else if (friendStatus.status === 'pending_sent') {
+                    friendActionsDiv.innerHTML = `<button class="btn btn-secondary" disabled>Solicitud Enviada</button>`;
+                } else if (friendStatus.status === 'pending_received') {
+                    friendActionsDiv.innerHTML = `
+                        <button class="btn btn-primary" onclick="acceptFriendRequest(${friendStatus.request_id})">Aceptar Solicitud</button>
+                        <button class="btn btn-danger" onclick="rejectFriendRequest(${friendStatus.request_id})">Rechazar</button>
+                    `;
+                } else if (friendStatus.status === 'friends') {
+                    friendActionsDiv.innerHTML = `<button class="btn btn-danger" onclick="removeFriend(${profileUserId})">Eliminar Amigo</button>`;
+                }
+            } else {
+                friendActionsDiv.innerHTML = `<button class="btn btn-secondary" disabled>Este es tu perfil</button>`;
+            }
+
+            loadFriends();
+            loadPendingRequests();
+        }
+
+        async function saveProfile() {
+            const newAvatar = document.getElementById('edit-avatar-url').value;
+            const newDesc = document.getElementById('edit-desc').value;
+
+            const feedbackDiv = document.getElementById('profile-feedback');
+            try {
+                const res = await fetch('/api/user/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: loggedInUserId,
+                        avatar: newAvatar,
+                        descripcion: newDesc
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    feedbackDiv.innerText = 'Perfil actualizado con éxito.';
+                    feedbackDiv.style.color = 'var(--success-color)';
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    feedbackDiv.innerText = 'Error: ' + (data.error || 'No se pudo actualizar');
+                    feedbackDiv.style.color = 'var(--danger-color)';
+                }
+            } catch (err) {
+                console.error(err);
+                feedbackDiv.innerText = 'Error de conexión con el servidor.';
+                feedbackDiv.style.color = 'var(--danger-color)';
+            }
+        }
+
+        async function sendFriendRequest(receiverId) {
+            const res = await fetch('/api/friends/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender_id: loggedInUserId, receiver_id: receiverId })
+            });
+            const data = await res.json();
+            document.getElementById('friend-feedback').innerText = data.message || data.error;
+            document.getElementById('friend-feedback').style.color = data.status === 'success' ? 'var(--success-color)' : 'var(--danger-color)';
+            loadProfile(); // Recargar para actualizar botones
+        }
+
+        async function acceptFriendRequest(requestId) {
+            const res = await fetch('/api/friends/accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+            });
+            const data = await res.json();
+            document.getElementById('friend-feedback').innerText = data.message || data.error;
+            document.getElementById('friend-feedback').style.color = data.status === 'success' ? 'var(--success-color)' : 'var(--danger-color)';
+            loadProfile();
+        }
+
+        // --- SISTEMA DE NOTIFICACIONES EN TIEMPO REAL ---
+        let knownRequestIds = new Set();
+        let isFirstLoad = true;
+
+        async function checkFriendNotifications() {
+            try {
+                const res = await fetch(`/api/friends/pending/${loggedInUserId}`);
+                const requests = await res.json();
+                
+                const currentIds = new Set(requests.map(r => r.id));
+                let hasNew = false;
+
+                for (let id of currentIds) {
+                    if (!knownRequestIds.has(id)) {
+                        if (!isFirstLoad) hasNew = true;
+                        knownRequestIds.add(id);
+                    }
+                }
+
+                if (hasNew) {
+                    showNotificationToast("¡Has recibido una nueva solicitud de amistad!");
+                    // Si estamos viendo nuestro propio perfil, recargar la lista visual
+                    if (profileUserId === loggedInUserId) loadPendingRequests();
+                }
+
+                updateNotificationBadge(requests.length);
+                isFirstLoad = false;
+            } catch (err) {
+                console.error("Error al verificar notificaciones:", err);
+            }
+        }
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                badge.innerText = count;
+                badge.style.display = count > 0 ? 'flex' : 'none';
+            }
+        }
+
+        function showNotificationToast(msg) {
+            const toast = document.createElement('div');
+            toast.style = "position: fixed; bottom: 20px; right: 20px; background: var(--primary-color); color: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); z-index: 2000; animation: slideInNotif 0.5s ease-out; font-weight: 600; border-left: 5px solid white;";
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = "slideOutNotif 0.5s ease-in forwards";
+                setTimeout(() => toast.remove(), 500);
+            }, 5000);
+        }
+
+        // Iniciar polling cada 10 segundos
+        setInterval(checkFriendNotifications, 10000);
+        checkFriendNotifications(); // Carga inicial
+
+        async function rejectFriendRequest(requestId) {
+            const res = await fetch('/api/friends/reject', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+            });
+            const data = await res.json();
+            document.getElementById('friend-feedback').innerText = data.message || data.error;
+            document.getElementById('friend-feedback').style.color = data.status === 'success' ? 'var(--success-color)' : 'var(--danger-color)';
+            loadProfile();
+        }
+
+        async function removeFriend(friendId) {
+            const res = await fetch('/api/friends/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    user_id1: loggedInUserId, 
+                    user_id2: friendId 
+                })
+            });
+            const data = await res.json();
+            if (document.getElementById('friend-feedback')) {
+                document.getElementById('friend-feedback').innerText = data.message || data.error;
+                document.getElementById('friend-feedback').style.color = data.status === 'success' ? 'var(--success-color)' : 'var(--danger-color)';
+            }
+            loadProfile();
+        }
+
+        async function loadFriends() {
+            const res = await fetch(`/api/friends/${profileUserId}`);
+            const friends = await res.json();
+            const tbody = document.getElementById('friends-list');
+            tbody.innerHTML = friends.map(friend => `
+                <tr>
+                    <td><a href="profile.html?id=${friend.id}" style="color: var(--accent-color); text-decoration: none;">${friend.username}</a></td>
+                    <td>
+                        ${profileUserId === loggedInUserId ? `<button class="btn btn-danger" style="font-size:0.7rem; padding: 5px 10px;" onclick="removeFriend(${friend.id})">Eliminar</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadPendingRequests() {
+            if (profileUserId !== loggedInUserId) return; // Solo mostrar solicitudes pendientes en el propio perfil
+            const res = await fetch(`/api/friends/pending/${loggedInUserId}`);
+            const requests = await res.json();
+            const tbody = document.getElementById('pending-requests-list');
+            tbody.innerHTML = requests.map(req => `
+                <tr>
+                    <td><a href="profile.html?id=${req.sender_id}" style="color: var(--accent-color); text-decoration: none;">${req.sender_username}</a></td>
+                    <td>
+                        <button class="btn btn-primary" style="font-size:0.7rem; padding: 5px 10px;" onclick="acceptFriendRequest(${req.id})">Aceptar</button>
+                        <button class="btn btn-danger" style="font-size:0.7rem; padding: 5px 10px;" onclick="rejectFriendRequest(${req.id})">Rechazar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        loadProfile();
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        // Lógica de Búsqueda de Usuarios
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+
+        searchInput.oninput = async (e) => {
+            const query = e.target.value.trim();
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/users/search?q=${query}&viewerId=${loggedInUserId}`);
+                const users = await res.json();
+
+                if (users.length > 0) {
+                    searchResults.innerHTML = users.map(u => `
+                        <div onclick="window.location.href='profile.html?id=${u.id}'" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-color); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold;">
+                                ${u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div style="flex-grow: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="font-weight: bold; font-size: 0.9rem; color: var(--text-main);">${u.username}</div>
+                                    ${u.friendship_status === 'accepted' ? 
+                                        '<span style="font-size: 0.7rem; color: var(--success-color); font-weight: bold;">(Amigo)</span>' : 
+                                        (u.friendship_status === 'pending' ? 
+                                            `<span style="font-size: 0.7rem; color: var(--accent-color); font-weight: bold;">(${u.sender_id == loggedInUserId ? 'Pendiente' : 'Solicitud'})</span>` : 
+                                            ''
+                                        )
+                                    }
+                                </div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">${u.rol}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    searchResults.style.display = 'block';
+                } else {
+                    searchResults.innerHTML = '<div style="padding: 10px; color: var(--text-muted); font-size: 0.9rem;">No se encontraron agentes.</div>';
+                    searchResults.style.display = 'block';
+                }
+            } catch (err) {
+                console.error("Error en búsqueda:", err);
+            }
+        };
+
+        // Cerrar resultados al hacer clic fuera
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

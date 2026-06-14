@@ -1,0 +1,31 @@
+<?php
+require_once '../config/db.php';
+session_start();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $rol = $_POST['rol'] ?? '';
+
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE username = ? AND rol = ?");
+    $stmt->execute([$username, $rol]);
+    $user = $stmt->fetch();
+
+    // Verificamos que el usuario existe y la contraseña coincide con el hash
+    if ($user && isset($user['password']) && password_verify($password, $user['password'])) {
+        session_regenerate_id(true); // Previene fijación de sesión
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['rol'] = $user['rol'];
+        if ($user['rol'] === 'profesor') {
+            header("Location: ../public/dashboard.php");
+        } else {
+            header("Location: ../public/student_dashboard.php");
+        }
+        exit();
+    } else {
+        header("Location: ../public/index.php?error=1");
+        exit();
+    }
+}
+?>

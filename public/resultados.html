@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eduplay - Resultados Detallados</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Resultados de Alumnos</h1>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select id="sala-selector">
+                    <option value="">Todas las salas</option>
+                </select>
+                <button onclick="loadResultados()" class="btn btn-primary" style="padding: 8px 15px;">Filtrar</button>
+                <a href="teacher_dashboard.html" class="btn btn-secondary" style="padding: 8px 15px;">← Volver</a>
+            </div>
+        </header>
+
+        <div class="widget">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Sala</th>
+                        <th>Estudiante</th>
+                        <th>Puntaje Total</th>
+                        <th>Máximo Nivel</th>
+                        <th>Progreso</th>
+                        <th>Última Conexión</th>
+                    </tr>
+                </thead>
+                <tbody id="resultados-body">
+                    <tr><td colspan="6" style="text-align: center; padding: 40px;">Cargando datos...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const nivelesNombres = {
+            0: "Sin actividad",
+            1: "Archivo",
+            2: "Océano",
+            3: "Bosque",
+            4: "Laboratorio",
+            5: "Núcleo"
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const username = localStorage.getItem('username');
+            if (!username) window.location.href = "index.html";
+            loadSelector();
+            loadResultados();
+        });
+
+        async function loadSelector() {
+            const docenteId = localStorage.getItem('userId');
+            const res = await fetch(`/api/docente/stats/${docenteId}`);
+            const stats = await res.json();
+            const selector = document.getElementById('sala-selector');
+            stats.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.codigo_unico;
+                opt.innerText = s.codigo_unico;
+                selector.appendChild(opt);
+            });
+        }
+
+        async function loadResultados() {
+            const docenteId = localStorage.getItem('userId');
+            const sala = document.getElementById('sala-selector').value;
+            const url = `/api/docente/resultados/${docenteId}${sala ? '?sala=' + sala : ''}`;
+            
+            const res = await fetch(url);
+            const data = await res.json();
+            const body = document.getElementById('resultados-body');
+
+            if (data.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">No hay datos de alumnos en tus salas.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = data.map(r => `
+                <tr>
+                    <td class="sala-tag">${r.sala_codigo}</td>
+                    <td>${r.alumno_nombre}</td>
+                    <td class="score-val">${r.total_score} PTS</td>
+                    <td>${nivelesNombres[r.max_nivel_id] || 'Desconocido'} (${r.max_nivel_id}/5)</td>
+                    <td style="width: 150px;">
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: ${(r.max_nivel_id / 5) * 100}%;"></div>
+                        </div>
+                    </td>
+                    <td style="font-size: 0.8rem; opacity: 0.7;">
+                        ${r.ultima_actividad ? new Date(r.ultima_actividad).toLocaleString() : 'N/A'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

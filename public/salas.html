@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eduplay - Configuración de Sala</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="assets/logo.png" alt="Eduplay" class="logo-img">
+                <h2 style="margin: 0; font-size: 1.2rem;">Centro de Mando</h2>
+            </div>
+            <a href="teacher_dashboard.html" class="btn btn-secondary">← Volver al Panel</a>
+        </header>
+
+        <div class="login-container" style="padding-top: 40px;">
+            <div class="login-card" style="max-width: 500px; border-top: 3px solid var(--primary-color);">
+                <h1>Nueva Sala de Entrenamiento</h1>
+                <p class="login-subtitle">CONFIGURACIÓN DE PROTOCOLO</p>
+                
+                <form id="createRoomForm">
+                    <div class="form-group">
+                        <label>Duración de la Sesión (Minutos)</label>
+                        <input type="number" id="duracion" value="60" min="10" max="300" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Capacidad de Agentes (Estudiantes)</label>
+                        <input type="number" id="capacidad" value="30" min="1" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Plataforma de Despliegue</label>
+                        <select id="game_url">
+                            <option value="game.html">Local (Simulador Integrado)</option>
+                            <option value="https://cyber-arena-alt.com">Servidor Alternativo</option>
+                        </select>
+                    </div>
+                    <button type="submit" id="submitBtn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">GENERAR CÓDIGO DE ACCESO</button>
+                </form>
+
+                <div id="room-result" class="hidden" style="margin-top: 25px; text-align: center; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <p style="color: var(--success-color); font-weight: bold; margin-bottom: 15px;">SALA ACTIVADA EXITOSAMENTE</p>
+                    <div class="codigo-box" id="generated-code">XXXXXX</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 15px;">Comparte este código con los estudiantes para que puedan unirse a la misión.</p>
+                    <button onclick="location.href='teacher_dashboard.html'" class="btn btn-secondary" style="width: 100%; margin-top: 20px;">IR AL MONITOR DE ACTIVIDAD</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('createRoomForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerText = "PROCESANDO...";
+
+            try {
+                const res = await fetch('/api/salas/crear', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        docente_id: localStorage.getItem('userId'),
+                        duracion: document.getElementById('duracion').value,
+                        capacidad: document.getElementById('capacidad').value,
+                        game_url: document.getElementById('game_url').value
+                    })
+                });
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('generated-code').innerText = data.codigo;
+                    document.getElementById('room-result').classList.remove('hidden');
+                    document.getElementById('createRoomForm').classList.add('hidden');
+                }
+            } catch (err) {
+                alert("Error crítico en la comunicación con el servidor.");
+                btn.disabled = false;
+                btn.innerText = "GENERAR CÓDIGO DE ACCESO";
+            }
+        };
+    </script>
+</body>
+</html>

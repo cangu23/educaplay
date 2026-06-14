@@ -1,0 +1,6 @@
+# Ignorar archivo de base de datos activa (Northflank usará el suyo)
+database/*.sqlite
+
+# Ignorar logs y archivos temporales
+*.log
+.DS_Store

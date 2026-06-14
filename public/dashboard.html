@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eduplay - Panel Profesor</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-grid">
+            <div class="widget">
+                <h2>Configurar Nueva Misión</h2>
+                <form id="form-sala">
+                    <div class="form-group">
+                        <label>Duración (minutos):</label>
+                        <input type="number" id="duracion" value="30">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Versión del Juego:</label>
+                        <select id="game_url">
+                            <option value="local">Cyber Explorer (Beta Local)</option>
+                            <option value="https://eduplay-remarestizer.vercel.app">Eduplay Remarestizer (Vercel v2)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Capacidad Máxima:</label>
+                        <input type="number" id="capacidad" value="10">
+                    </div>
+                    
+                    <button type="button" onclick="crearSala()" class="btn btn-primary" style="width: 100%;">DESPLEGAR SALA</button>
+                </form>
+                <div id="codigo-display" class="codigo-box">------</div>
+            </div>
+
+            <div class="widget">
+                <h2>Rendimiento de Mis Salas</h2>
+                <div id="stats-container">Cargando estadísticas...</div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="resultados.html" class="btn btn-secondary" style="width: 100%;">Ver Resultados Detallados</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "/api";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const username = localStorage.getItem('username');
+            if (!username) window.location.href = "index.html";
+            loadStats();
+        });
+
+        async function loadStats() {
+            const docenteId = localStorage.getItem('userId');
+            const response = await fetch(`${API_URL}/docente/stats/${docenteId}`);
+            const stats = await response.json();
+            
+            const container = document.getElementById('stats-container');
+            container.innerHTML = stats.map(s => `
+                <div class="stat-item">
+                    <div class="stat-item-header">
+                        <span>Sala: <strong>${s.codigo_unico}</strong></span>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span class="score-val">${Math.round(s.promedio)} PTS</span>
+                            <button onclick="borrarSala(${s.id})" class="btn btn-danger" style="padding: 2px 8px; font-size: 0.7rem;">Borrar</button>
+                        </div>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: ${Math.min(100, (s.promedio/5000)*100)}%;"></div>
+                    </div>
+                </div>
+            `).join('') || "No hay salas activas.";
+        }
+
+        async function crearSala() {
+            const data = {
+                docente_id: localStorage.getItem('userId'),
+                duracion: document.getElementById('duracion').value,
+                capacidad: document.getElementById('capacidad').value,
+                game_url: document.getElementById('game_url').value
+            };
+
+            const response = await fetch(`${API_URL}/salas/crear`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const res = await response.json();
+            document.getElementById('codigo-display').innerText = res.codigo;
+            loadStats(); // Recargar lista
+        }
+
+        async function borrarSala(salaId) {
+            if (!confirm("¿Estás seguro de que quieres borrar esta sala?")) return;
+            
+            const docenteId = localStorage.getItem('userId');
+            const response = await fetch(`${API_URL}/salas/borrar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sala_id: salaId, docente_id: docenteId })
+            });
+            const res = await response.json();
+            if (res.status === 'success') {
+                loadStats();
+            } else {
+                alert(res.error || "Error al borrar sala");
+            }
+        }
+    </script>
+</body>
+</html>

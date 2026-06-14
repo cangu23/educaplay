@@ -1,0 +1,32 @@
+<?php
+require_once '../config/db.php';
+session_start();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['puntaje']) || !isset($data['nivel_id'])) {
+        echo json_encode(["status" => "error", "mensaje" => "Datos incompletos"]);
+        exit;
+    }
+
+    $estudiante_id = $_SESSION['user_id'];
+    $score = intval($data['puntaje']);
+    $nivel_id = intval($data['nivel_id']);
+
+    try {
+        // En SQLite usamos ON CONFLICT para manejar el UPSERT
+        $stmt = $pdo->prepare("INSERT INTO progreso_estudiante (estudiante_id, nivel_id, score, completado) 
+                               VALUES (?, ?, ?, 1) 
+                               ON CONFLICT(estudiante_id, nivel_id) DO UPDATE SET 
+                               score = MAX(score, excluded.score), 
+                               fecha_actualizacion = CURRENT_TIMESTAMP");
+        $stmt->execute([$estudiante_id, $nivel_id, $score]);
+        echo json_encode(["status" => "success", "mensaje" => "Progreso guardado"]);
+    } catch (PDOException $e) {
+        echo json_encode(["status" => "error", "mensaje" => $e->getMessage()]);
+    }
+} else {
+    echo json_encode(["status" => "error", "mensaje" => "Sesión no válida"]);
+}
+?>

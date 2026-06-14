@@ -1,0 +1,36 @@
+<?php
+require_once '../config/db.php';
+session_start();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
+    $codigo = strtoupper(trim($_POST['codigo']));
+    
+    $stmt = $pdo->prepare("SELECT id, capacidad_max, game_url FROM salas WHERE codigo_unico = ? AND activa = 1");
+    $stmt->execute([$codigo]);
+    $sala = $stmt->fetch();
+
+    if ($sala) {
+        $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM participantes_sala WHERE sala_id = ?");
+        $stmtCount->execute([$sala['id']]);
+        $actuales = $stmtCount->fetchColumn();
+
+        if ($actuales < $sala['capacidad_max']) {
+            // Aseguramos el uso de la sintaxis correcta de SQLite
+            $stmtJoin = $pdo->prepare("INSERT OR IGNORE INTO participantes_sala (sala_id, estudiante_id) VALUES (?, ?)");
+            $stmtJoin->execute([$sala['id'], $_SESSION['user_id']]);
+            $_SESSION['sala_id'] = $sala['id'];
+
+            // Redirección según la versión del juego
+            if ($sala['game_url'] === 'local') {
+                header("Location: ../public/game.php");
+            } else {
+                header("Location: " . $sala['game_url'] . "?sala=" . $codigo . "&user=" . $_SESSION['username']);
+            }
+        } else {
+            header("Location: ../public/student_dashboard.php?error=llena");
+        }
+    } else {
+        header("Location: ../public/student_dashboard.php?error=notfound");
+    }
+}
+?>

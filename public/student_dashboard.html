@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eduplay - Juego</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <body style="display: flex; flex-direction: column; min-height: 100vh;">
+        <header>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="assets/logo.png" alt="Eduplay" class="logo-img" onclick="window.location.href='index.html'" style="cursor: pointer;">
+                <h2 style="margin: 0; font-size: 1.2rem; color: var(--primary-dark);">Eduplay Dashboard</h2>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <nav style="display: flex; gap: 10px;">
+                    <a href="student_dashboard.html" class="btn btn-secondary" style="display: flex; align-items: center; gap: 5px;">
+                        <span class="material-icons" style="font-size: 18px;">dashboard</span> Panel
+                    </a>
+                    <a href="profile.html" class="btn btn-secondary" style="display: flex; align-items: center; gap: 5px;">
+                        <span class="material-icons" style="font-size: 18px;">person</span> Mi Perfil
+                    </a>
+                </nav>
+                <button onclick="localStorage.clear(); window.location.href='index.html'" class="btn btn-danger" style="display: flex; align-items: center; gap: 5px;">
+                    <span class="material-icons" style="font-size: 18px;">logout</span> Salir
+                </button>
+            </div>
+        </header>
+
+        <main style="flex-grow: 1;">
+    <style>
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 90vh;
+        }
+        .code-input {
+            background: #0a0c14;
+            border: 1px solid var(--border-color);
+            color: var(--white);
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: bold;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            width: 100%;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            background: var(--card-bg);
+            color: var(--accent-color);
+            border: 1px solid var(--border-color);
+            font-size: 0.7rem;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+    <div class="login-container" style="height: auto; padding: 60px 0;">
+        <div class="login-card" style="width: 450px; text-align: center;">
+            <div class="status-badge" id="agent-status">AGENTE: --- // SISTEMA ACTIVO</div>
+            <h2 style="margin-bottom: 10px; color: var(--white);">Unirse a Sala</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 30px;">Introduce el código de acceso proporcionado por tu profesor.</p>
+            
+            <div id="msg" style="color: var(--danger-color); margin-bottom: 10px;"></div>
+
+            <form id="joinForm">
+                <input type="text" id="codigo" placeholder="CÓDIGO" class="code-input" maxlength="6" required>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Ingresar</button>
+            </form>
+
+            <a href="#" onclick="localStorage.clear(); window.location.href='index.html'" style="display: block; margin-top: 25px; color: var(--danger-color); text-decoration: none; font-weight: bold; font-size: 0.8rem;">Cerrar Sesión</a>
+        </div>
+    </div>
+    <script>
+        document.getElementById('agent-status').innerText = `AGENTE: ${localStorage.getItem('username')?.toUpperCase()} // SISTEMA ACTIVO`;
+
+        document.getElementById('joinForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const res = await fetch('/api/salas/unirse', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    codigo: document.getElementById('codigo').value,
+                    estudiante_id: localStorage.getItem('userId')
+                })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                localStorage.setItem('salaId', data.salaId);
+                window.location.href = data.redirect + data.params;
+            } else {
+                document.getElementById('msg').innerText = data.error || "Error al unirse";
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,581 @@
+    <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eduplay - En Juego</title> 
+    <link rel="icon" href="data:,"> <!-- Evita el error 500 de favicon.ico -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background: var(--bg-main); color: var(--text-main); overflow: hidden; margin: 0; }
+        
+        /* Ensure game container fills the screen */
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+            position: relative; /* Asegura que los elementos absolutos dentro se posicionen correctamente */
+        }
+
+        #side-panel {
+            width: 320px;
+            background: #0a0a0a;
+            border-right: 1px solid #262626;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) #0a0a0a;
+        }
+
+        /* Estilo para la barra de desplazamiento del panel lateral */
+        #side-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        #side-panel::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        #side-panel::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 3px;
+        }
+
+        /* Vercel Frame */
+        #vercel-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        #game-wrapper {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .engine-toggle {
+            position: absolute; /* Posicionamiento relativo al game-wrapper */
+            top: 10px;
+            left: 10px;
+            z-index: 100; /* Asegura que esté por encima del canvas */
+            background: rgba(0,0,0,0.7);
+            padding: 6px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+        }
+
+        #chat-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            height: 250px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transition: all 0.3s;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        #chat-panel.minimized { 
+            height: 45px; 
+            width: 150px; /* Un poco más ancho para el título */
+            border-radius: 8px;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: row; /* Para alinear el título y el botón */
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+        #chat-panel.minimized .chat-messages,
+        #chat-panel.minimized .chat-input-area {
+            display: none; /* Oculta el contenido del chat */
+        }
+        #chat-panel.minimized .chat-title {
+            display: block; /* Muestra el título en estado minimizado */
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.5);
+        }
+        .chat-title {
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: var(--primary-color);
+        }
+        .chat-toggle-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0 5px;
+            line-height: 1;
+        }
+        .chat-toggle-btn:hover {
+            color: var(--white);
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 10px 15px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            color: var(--text-main);
+            background: transparent !important;
+        }
+        .chat-input-area {
+            padding: 10px 15px;
+            border-top: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.5);
+        }
+        #chat-input {
+            width: calc(100% - 10px);
+            padding: 8px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+        }
+        #chat-input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        #ingame-hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 950;
+            pointer-events: none; /* Permite clics a través del HUD */
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Espacio entre elementos del HUD */
+        }
+
+        #fs-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--primary-color);
+            color: white;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        #chat-toggle {
+            background: none; border: none; color: white; cursor: pointer; padding: 10px; text-align: left;
+        }
+
+        /* HUD Flotante In-Game */
+        .ingame-hud {
+            position: absolute;
+            z-index: 900;
+            pointer-events: none;
+            color: white;
+            text-shadow: 2px 2px 4px black;
+        }
+        #hud-stats { top: 20px; right: 20px; text-align: right; }
+
+        #countdown-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 6rem;
+            color: var(--primary-color);
+            font-weight: 800;
+            z-index: 4500; /* Asegura que esté por encima del mission-toast (4000) */
+            background: rgba(0,0,0,0.5);
+            display: none;
+        }
+
+        /* Estilos para el modo pantalla completa */
+        .fullscreen-active #gameCanvas {
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+        
+        .stat-box {
+            background: #111;
+            border: 1px solid #262626;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Sombra sutil */
+            border-left: 3px solid var(--primary-color);
+        }
+        .stat-label { font-size: 0.7rem; opacity: 0.6; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 1.2rem; font-weight: bold; color: var(--primary-color); }
+
+        .modal { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 80%; max-width: 600px; z-index: 5000; text-align: center; 
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            padding: 30px;
+            border-radius: 16px;
+        }
+
+        /* Inventory Modal */
+        #inventory-modal .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5 columnas */
+            gap: 10px;
+            margin-top: 20px;
+        }
+        #inventory-modal .inventory-slot {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .hidden { display: none !important; }
+        
+        /* Pantalla de Carga */
+        #loading-screen { 
+            position: fixed; inset: 0; 
+            background: #000000; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            z-index: 2000; 
+        }
+        .loader { width: 40px; height: 40px; border: 3px solid #262626; border-top-color: var(--primary-color); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .profile-card-mini {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .avatar-circle {
+            width: 64px; height: 64px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.5rem; font-weight: bold;
+        }
+
+        .hud-bar-container { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin: 5px 0; }
+        .hud-bar-fill { height: 100%; transition: width 0.3s ease; }
+        .skill-icon { 
+            width: 40px; height: 40px; border: 1px solid var(--border-color); border-radius: 8px; 
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+            background: var(--card-bg); position: relative;
+        }
+        .skill-key { position: absolute; bottom: -5px; right: -5px; font-size: 0.6rem; background: var(--primary-color); color: white; padding: 2px 4px; border-radius: 4px; }
+        .skill-cooldown { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <img src="assets/logo.png" alt="Logo" class="logo-img" style="height: 80px; margin-bottom: 24px;">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Overlay de Cuenta Regresiva para inicio de nivel -->
+    <div id="countdown-overlay"></div>
+
+    <nav class="top-navbar" style="display: none;"> <!-- Oculta para inmersión total, se puede reactivar -->
+        <img src="assets/logo.png" alt="Eduplay" class="logo-img">
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <span id="nav-user-name" style="font-weight: 600; font-size: 0.9rem;">Cargando Agente...</span>
+            <div class="avatar-circle" style="width: 32px; height: 32px; font-size: 0.8rem; margin: 0;">A</div>
+                <button class="btn btn-secondary" onclick="toggleInventory()" style="padding: 5px 10px; font-size: 0.7rem;">
+                    <span class="material-icons" style="font-size: 18px;">inventory</span>
+                    Inventario
+                </button>
+        </div>
+    </nav>
+
+    <!-- Selector de Personaje (Skin) -->
+    <div id="skin-selector" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 8px; color: var(--primary-color);">PROTOCOLO DE ACCESO</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Seleccione su firma digital de Agente.</p>
+            <div id="skin-options-container" style="display: flex; justify-content: center; gap: 12px; margin-bottom: 24px;">
+                <button onclick="seleccionarSkin(this, '#6366f1')" class="btn btn-primary" data-color="#6366f1">Indigo Knight</button>
+                <button onclick="seleccionarSkin(this, '#10b981')" class="btn" style="background: #064e3b; color: #34d399;" data-color="#10b981">Emerald Ghost</button>
+                <button onclick="seleccionarSkin(this, '#f43f5e')" class="btn" style="background: #450a0a; color: #f87171;" data-color="#f43f5e">Ruby Hacker</button>
+            </div>
+            <button id="btn-continuar" onclick="continuarPartida()" class="btn btn-secondary hidden" style="width: 100%;">Cargar Sesión Previa</button>
+        </div>
+    </div>
+
+    <!-- Pantalla de Game Over -->
+    <div id="game-over-screen" class="modal hidden" style="background: rgba(13, 2, 2, 0.95); z-index: 3000;">
+        <div class="modal-content" style="border: 2px solid #ef4444; box-shadow: 0 0 50px rgba(239, 68, 68, 0.4);">
+            <h1 style="color: #ef4444; font-size: 2.5rem; margin-bottom: 10px;">KERNEL PANIC: ERROR 0x004</h1>
+            <p style="color: var(--text-muted); margin-bottom: 30px;">La integridad del sistema ha caído al 0%. Conexión neuronal perdida.</p>
+            <button onclick="location.reload()" class="btn btn-primary" style="background: #ef4444; color: white; width: 100%; margin-bottom: 10px;">REBOOT SYSTEM (REINTENTAR)</button>
+            <button onclick="location.href='student_dashboard.html'" class="btn btn-secondary" style="width: 100%;">ABORTAR MISIÓN</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="side-panel">
+            <div class="profile-card-mini">
+                <div class="avatar-circle" id="profile-initial">?</div>
+                <div style="font-weight: bold;" id="user-display">Usuario</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Agente de Ciberseguridad</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-label">DIMENSIÓN</div>
+                <div class="stat-value" id="level-display">ARCHIVO</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Estado de Energía</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                    <span>Batería</span><span id="battery-val">100%</span>
+                </div>
+                <div class="hud-bar-container"><div id="battery-bar-hud" class="hud-bar-fill" style="width: 100%; background: var(--success-color);"></div></div>
+                
+                <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-top: 8px;">
+                    <span>Estamina</span><span id="stamina-val">100%</span>
+                </div>
+                <div class="hud-bar-container"><div id="stamina-bar-hud" class="hud-bar-fill" style="width: 100%; background: #fbbf24;"></div></div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Rastreador de Misiones</div>
+                <div id="mission-tracker" style="margin-top: 10px;">
+                    <!-- Se llena dinámicamente desde game.js -->
+                </div>
+            </div>
+
+            <div id="credentials-box" class="stat-box hidden">
+                <div class="stat-label" id="credentials-title" style="color: var(--primary-color); border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 10px;">ESTRUCTURA DE DATOS</div>
+                <div id="credentials-list" style="display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 10px 0;"></div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-label">Tiempo de Sesión</div>
+                <div class="stat-value" id="timer">--:--</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Fragmentos de Código</div>
+                <div class="stat-value" id="code-fragments-display">0</div>
+            </div>
+            <div style="margin-top: auto; text-align: center; font-size: 0.6rem; opacity: 0.5;">
+                SYS_CORE_V2.0 // EDUPLAY
+                <a href="index.html" onclick="localStorage.clear()" style="color: #ff0055; text-decoration: none; display: block; margin-top: 10px;">[ CERRAR SESIÓN ]</a>
+            </div>
+        </div>
+
+        <!-- HUD Top-Left: Integridad del Agente -->
+        <div id="hud-integrity-display" class="ingame-hud" style="top: 20px; left: 340px;">
+            <div class="hud-vitals">
+                <div class="stat-label">INTEGRIDAD DEL AGENTE</div>
+                <div id="lives-display" style="display: flex; gap: 5px; margin-top: 5px;"></div>
+            </div>
+        </div>
+
+        <!-- HUD Top-Right: Puntuación Total -->
+        <div id="hud-score-display" class="ingame-hud" style="top: 20px; right: 20px; text-align: right;">
+            <div class="hud-vitals">
+                <div class="stat-label">PUNTUACIÓN TOTAL</div>
+                <div class="stat-value" id="score-display">0</div>
+            </div>
+        </div>
+
+        <!-- HUD Bottom-Left: Controles de Voz -->
+        <div id="hud-speech-controls" class="ingame-hud hidden" style="bottom: 20px; left: 340px;">
+            <div class="hud-vitals">
+                <div class="stat-label">CONTROLES DE VOZ</div>
+                <div style="display: flex; gap: 5px; margin-top: 5px;">
+                    <button onclick="rewindSpeech()" class="btn btn-secondary" style="font-size: 0.6rem; padding: 4px; flex: 1;" title="Rebobinar">⏪</button>
+                    <button id="pause-speech-btn" onclick="togglePauseSpeech()" class="btn btn-secondary" style="font-size: 0.6rem; padding: 4px; flex: 1;" title="Pausar/Reanudar">⏸</button>
+                    <button id="speed-btn" onclick="changeSpeechRate()" class="btn btn-secondary" style="font-size: 0.6rem; padding: 4px; flex: 1;" title="Velocidad">1.0x</button>
+                    <button onclick="skipSpeech()" class="btn btn-secondary" style="font-size: 0.6rem; padding: 4px; flex: 1;" title="Saltar">⏹</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HUD Bottom-Center: Habilidades de Agente -->
+        <div id="hud-skills-display" class="ingame-hud" style="bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px;">
+            <div class="skill-icon" title="Firewall (Escudo)">🛡️<div class="skill-key">R</div><div id="cooldown-r" class="skill-cooldown"></div></div>
+            <div class="skill-icon" title="Overclock (Velocidad)">⚡<div class="skill-key">E</div><div id="cooldown-e" class="skill-cooldown"></div></div>
+            <div class="skill-icon" title="Scan (Revelar Objetivos)">🔍<div class="skill-key">Q</div><div id="cooldown-q" class="skill-cooldown"></div></div>
+        </div>
+
+        <div id="game-wrapper">
+            <div class="engine-toggle">
+                <button onclick="switchEngine('local')" id="btn-local" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.7rem;">Local</button>
+                <button onclick="switchEngine('vercel')" id="btn-vercel" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.7rem;">Vercel</button>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Mobile Controls -->
+            <div id="mobile-controls">
+                <div class="d-pad">
+                    <button onmousedown="teclas['w']=true" onmouseup="teclas['w']=false" ontouchstart="teclas['w']=true" ontouchend="teclas['w']=false">▲</button>
+                    <div>
+                        <button onmousedown="teclas['a']=true" onmouseup="teclas['a']=false" ontouchstart="teclas['a']=true" ontouchend="teclas['a']=false">◀</button>
+                        <button onmousedown="teclas['s']=true" onmouseup="teclas['s']=false" ontouchstart="teclas['s']=true" ontouchend="teclas['s']=false">▼</button>
+                        <button onmousedown="teclas['d']=true" onmouseup="teclas['d']=false" ontouchstart="teclas['d']=true" ontouchend="teclas['d']=false">▶</button>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button onmousedown="teclas[' ']=true" onmouseup="teclas[' ']=false" ontouchstart="teclas[' ']=true" ontouchend="teclas[' ']=false">⚔️</button>
+                    <button onmousedown="teclas['x']=true" onmouseup="teclas['x']=false" ontouchstart="teclas['x']=true" ontouchend="teclas['x']=false">🔫</button>
+                </div>
+            </div>
+            
+            <iframe id="vercel-frame" src=""></iframe>
+        </div>
+
+        <div id="chat-panel">
+            <div class="chat-header">
+                <span class="chat-title">CHAT DE SALA</span>
+                <button onclick="toggleChat()" class="chat-toggle-btn">_</button>
+            </div>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Escribe un mensaje..." style="margin-bottom: 5px;">
+                <button onclick="sendChatMessage()" class="btn btn-primary" style="width: 100%; font-size: 0.7rem;">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Misiones y Reporte -->
+    <div id="quiz-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="quiz-title" style="margin: 0; font-size: 1.25rem; color: var(--primary-color);">SISTEMA DE EVALUACIÓN</h2>
+            </div>
+            <div class="modal-body">
+                <div id="report-content" class="hidden"></div>
+                <h3 id="quiz-question" style="color: var(--text-main); font-size: 1.1rem; margin-top: 0;">Cargando desafío...</h3>
+                <div id="options-container"></div>
+                <div id="feedback" class="hidden" style="margin-top: 15px; padding: 12px; border-radius: 8px; background: #fee2e2; color: #b91c1c; font-size: 0.85rem; font-weight: 500;"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-btn" class="btn btn-primary hidden" style="width: 100%;">COMPLETAR PROTOCOLO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Inventario -->
+    <div id="inventory-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="margin: 0; font-size: 1.25rem; color: var(--primary-color);">INVENTARIO DE AGENTE</h2>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); margin-bottom: 15px;">Utiliza tus recursos para sobrevivir.</p>
+                <div id="inventory-grid" class="inventory-grid">
+                    <!-- Los ítems se renderizarán aquí -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="toggleInventory()" style="width: 100%;">CERRAR</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Eduplay. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="js/lore.js"></script>
+    <script src="js/content.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="js/game.js"></script>
+    <script>
+        // Control de pausa manual
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Escape" && estadoJuego === "JUGANDO") {
+                juegoPausado = !juegoPausado;
+                if (juegoPausado) {
+                    document.getElementById("loading-screen").classList.remove("hidden");
+                    document.querySelector("#loading-screen h2").innerText = "JUEGO EN PAUSA";
+                } else {
+                    document.getElementById("loading-screen").classList.add("hidden");
+                }
+            }
+        });
+
+        function updateTimer() {
+            fetch(`/api/salas/status/${localStorage.getItem('salaId')}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.tiempo_restante <= 0) { alert("¡Tiempo agotado!"); window.location.href = "student_dashboard.html"; }
+                    const mins = Math.floor(data.tiempo_restante / 60);
+                    const secs = data.tiempo_restante % 60;
+                    document.getElementById('timer').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                }).catch(error => console.error("Error al obtener estado de sala:", error));
+        }
+        setInterval(updateTimer, 1000); // Actualizar cada segundo
+        updateTimer();
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    sala_id: localStorage.getItem('salaId'),
+                    username: localStorage.getItem('username'),
+                    mensaje: msg
+                })
+            });
+            input.value = '';
+            loadChat();
+        }
+
+        async function loadChat() {
+            const res = await fetch(`/api/chat/${localStorage.getItem('salaId')}`);
+            const msgs = await res.json();
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = msgs.map(m => `
+                <div class="message">
+                    <span style="color:var(--accent-color); font-weight:bold;">${m.username}:</span> 
+                    ${m.mensaje}
+                </div>`).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+        setInterval(loadChat, 3000);
+
+        function switchEngine(type) {
+            const canvas = document.getElementById('gameCanvas');
+            const iframe = document.getElementById('vercel-frame');
+            if (type === 'vercel') {
+                // Detener música local si existe
+                musicEnabled = false;
+                canvas.style.display = 'none';
+                iframe.style.display = 'block';
+                iframe.src = "https://eduplay-remarestizer.vercel.app";
+            } else {
+                canvas.style.display = 'block';
+                iframe.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
