@@ -114,7 +114,8 @@ async function crearNuevaSala() {
         alert("¡Sala creada con éxito!");
         loadRooms(); // Recarga la lista para ver la nueva sala
     } else {
-        alert("Error al crear la sala");
+        const errorData = await res.json();
+        alert("Error al crear la sala: " + (errorData.error || 'Consulte al administrador del sistema.'));
     }
 }
 

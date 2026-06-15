@@ -304,6 +304,8 @@ function startup() {
         } else if (userRole === 'estudiante') {
             renderStudentButton();
         }
+        
+        renderProfileButton();
 
         // --- BOTÓN DE CERRAR SESIÓN (PARA AMBOS ROLES) ---
         if (localStorage.getItem('token')) { // Solo mostrar si hay una sesión activa
@@ -334,6 +336,86 @@ function startup() {
         }
     } catch (e) {
         console.error("Error durante el arranque del sistema:", e);
+    }
+}
+
+/**
+ * Renderiza un botón para abrir el perfil del usuario
+ */
+function renderProfileButton() {
+    const profileBtn = document.createElement("button");
+    profileBtn.innerHTML = "👤 MI PERFIL";
+    profileBtn.className = "btn btn-secondary floating-dashboard-btn";
+    profileBtn.style.left = "10px";
+    profileBtn.style.top = "20px";
+    profileBtn.style.transform = "none";
+    profileBtn.onclick = () => showProfileModal();
+    document.body.appendChild(profileBtn);
+}
+
+/**
+ * Muestra el perfil del usuario con acceso directo a sus paneles de gestión.
+ */
+async function showProfileModal() {
+    const userId = localStorage.getItem('userId');
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('rol');
+
+    if (!userId || !token) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/user/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const user = await res.json();
+
+        juegoPausado = true;
+        const modal = domCache.quizModal;
+        domCache.quizTitle.innerText = "💻 PERFIL DEL AGENTE";
+        domCache.quizQuestion.innerHTML = `
+            <div style="text-align: center; font-family: 'Courier New', monospace;">
+                <div style="font-size: 4rem; margin-bottom: 10px;">${user.avatar === 'agente_1' ? '👤' : user.avatar}</div>
+                <h2 style="color: var(--primary-color); text-transform: uppercase; margin: 0;">${user.username}</h2>
+                <p style="color: var(--text-muted); font-size: 0.8rem;">ID SEGURIDAD: ${user.id} | ROL: ${user.rol.toUpperCase()}</p>
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border-color);">
+                    <p style="margin: 0; font-size: 0.9rem;">${user.descripcion || 'Sin descripción de protocolo.'}</p>
+                </div>
+                <div style="font-size: 1.2rem; font-weight: bold; color: var(--success-color);">
+                    PUNTUACIÓN TOTAL: ${user.total_score || 0} PTS
+                </div>
+            </div>
+        `;
+
+        domCache.optionsContainer.innerHTML = "";
+        
+        // El botón para ir al panel (Lo que pidió el usuario)
+        const panelBtn = document.createElement("button");
+        panelBtn.className = "btn btn-primary";
+        panelBtn.style.width = "100%";
+        panelBtn.style.marginBottom = "10px";
+        panelBtn.style.padding = "15px";
+        panelBtn.innerHTML = role === 'profesor' ? "⚙️ IR AL PANEL DE CONTROL (CREAR SALAS)" : "📊 VER MIS ESTADÍSTICAS";
+        panelBtn.onclick = () => {
+            window.location.href = role === 'profesor' ? 'teacher_dashboard.html' : 'student_dashboard.html';
+        };
+        domCache.optionsContainer.appendChild(panelBtn);
+
+        modal.classList.remove("hidden");
+        domCache.closeBtn.classList.remove("hidden");
+        domCache.closeBtn.innerText = "CERRAR PERFIL";
+        domCache.closeBtn.onclick = () => {
+            modal.classList.add("hidden");
+            juegoPausado = false;
+        };
+        
+        if (domCache.speechControls) domCache.speechControls.classList.remove("hidden");
+        speakText(`Agente ${user.username}, el sistema está listo para redirigirte a tu panel de control.`);
+
+    } catch (error) {
+        console.error("Error al cargar perfil:", error);
     }
 }
 
