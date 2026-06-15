@@ -1,9 +1,14 @@
-const docenteId = localStorage.getItem('userId');
-const token = localStorage.getItem('token');
-const userRole = localStorage.getItem('rol');
-
 async function initDashboard() {
-    if (!docenteId || !token || userRole !== 'profesor') return window.location.href = 'index.html';
+    const docenteId = localStorage.getItem('userId');
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('rol');
+
+    // Validación estricta pero informativa
+    if (!docenteId || !token || String(userRole).toLowerCase() !== 'profesor') {
+        console.error("Acceso denegado: Credenciales insuficientes o rol incorrecto.", { docenteId, userRole });
+        window.location.href = 'index.html';
+        return;
+    }
 
     await loadStats();
     await loadRooms();
