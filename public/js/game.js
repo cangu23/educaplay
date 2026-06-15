@@ -2880,7 +2880,7 @@ function actualizarHUD() {
 
             // --- LÓGICA DE LAS CREDENCIALES VERTICALES ---
             const fragmentMissions = ["simbolos", "combate_consola", "firewall"];
-            const isFragmentMission = fragmentMissions.includes(mis.tipo);
+            const isFragmentMission = fragmentMissions.includes(mis.tipo); // Determina si la misión actual requiere mostrar credenciales
 
             if (isFragmentMission && domCache.credentialsBox && domCache.credentialsList) {
                 domCache.credentialsBox.classList.remove("hidden");
@@ -2921,13 +2921,15 @@ function actualizarHUD() {
                     return `<div style="width: ${size}; height: ${size}; border: ${border}; background: #050505; color: ${color}; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; font-size: ${fontSize}; box-shadow: ${shadow}; transition: all 0.4s ease;">${found ? t : '?'}</div>`;
                 }).join("");
 
-                domCache.credentialsList.innerHTML = buildItemsHtml("50px", "1.3rem", "15px");
+                // Siempre ocultar el panel lateral de credenciales
+                domCache.credentialsBox.classList.add("hidden");
+                // Mostrar y actualizar solo el panel de credenciales del HUD superior
                 if (domCache.hudCredentialsList) {
                     domCache.hudCredentialsList.innerHTML = buildItemsHtml("30px", "0.9rem", "10px");
                 }
-            } else if (domCache.credentialsBox) {
-                domCache.credentialsBox.classList.add("hidden");
-                if (domCache.hudAccessCode) domCache.hudAccessCode.classList.add("hidden");
+            } else { // Si no es una misión de fragmentos, ocultar ambos
+                if (domCache.credentialsBox) domCache.credentialsBox.classList.add("hidden"); // Ocultar el del sidebar
+                if (domCache.hudAccessCode) domCache.hudAccessCode.classList.add("hidden"); // Ocultar el del HUD
             }
 
         // Actualización optimizada del Sidebar
