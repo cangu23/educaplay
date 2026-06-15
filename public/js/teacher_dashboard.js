@@ -1,42 +1,9 @@
-// Variables globales para el contexto del dashboard
 const docenteId = localStorage.getItem('userId');
 const token = localStorage.getItem('token');
-const userRole = localStorage.getItem('rol');
-
-/**
- * Función global para cerrar sesión
- */
-window.logout = function() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('username');
-    localStorage.removeItem('rol');
-    localStorage.removeItem('cyberExplorer_SaveData');
-    window.location.href = 'index.html';
-};
 
 async function initDashboard() {
-    // Validación estricta pero informativa
-    console.log("Teacher Dashboard: Checking credentials. DocenteId:", docenteId, "UserRole:", userRole);
-    if (!docenteId || !token || String(userRole).toLowerCase() !== 'profesor') {
-        console.error("Acceso denegado: Credenciales insuficientes o rol incorrecto.", { docenteId, userRole });
-        window.location.href = 'index.html';
-        return;
-    }
-
-    // --- BOTÓN DE CERRAR SESIÓN ---
-    if (token) { // Solo mostrar si hay una sesión activa
-        const logoutBtn = document.createElement("button");
-        logoutBtn.innerHTML = "🚪 CERRAR SESIÓN";
-        logoutBtn.style.position = "fixed";
-        logoutBtn.style.top = "20px";
-        logoutBtn.style.right = "20px";
-        logoutBtn.style.zIndex = "10001";
-        logoutBtn.className = "btn btn-secondary";
-        logoutBtn.onclick = () => window.logout(); // Llama a la función global de logout
-        document.body.appendChild(logoutBtn);
-    }
-
+    if (!docenteId || !token) return window.location.href = 'index.html';
+    
     await loadStats();
     await loadRooms();
     await loadChart();
@@ -88,37 +55,6 @@ async function deleteSala(id) {
     if (res.ok) {
         loadRooms();
         loadStats();
-    }
-}
-
-async function crearNuevaSala() {
-    const duracion = prompt("Duración de la sala (minutos):", "60");
-    const capacidad = prompt("Capacidad máxima de alumnos:", "30");
-
-    // Re-verificar ID antes de enviar
-    const currentDocenteId = localStorage.getItem('userId');
-    if (!duracion || !capacidad) return;
-
-    const res = await fetch('/api/salas/crear', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-            docente_id: currentDocenteId,
-            duracion: parseInt(duracion),
-            capacidad: parseInt(capacidad),
-            game_url: 'local'
-        })
-    });
-
-    if (res.ok) {
-        alert("¡Sala creada con éxito!");
-        loadRooms(); // Recarga la lista para ver la nueva sala
-    } else {
-        const errorData = await res.json();
-        alert("Error al crear la sala: " + (errorData.error || 'Consulte al administrador del sistema.'));
     }
 }
 

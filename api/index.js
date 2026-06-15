@@ -137,12 +137,6 @@ apiRouter.use((req, res, next) => {
 apiRouter.post('/salas/crear', authenticateToken, authorizeRole('profesor'), async (req, res) => {
   try {
     const { docente_id, duracion, capacidad, game_url } = req.body;
-    
-    // Aseguramos comparación numérica para evitar fallos de tipos
-    if (Number(req.user.id) !== Number(docente_id)) {
-      return res.status(403).json({ error: 'No autorizado para crear salas en nombre de otro docente.' });
-    }
-
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
     await db.execute({
       sql: 'INSERT INTO salas (codigo_unico, docente_id, duracion_minutos, capacidad_max, game_url) VALUES (?, ?, ?, ?, ?)',
@@ -150,7 +144,6 @@ apiRouter.post('/salas/crear', authenticateToken, authorizeRole('profesor'), asy
     });
     res.json({ status: 'success', codigo });
   } catch (e) {
-    console.error("Error en DB al crear sala:", e);
     res.status(500).json({ error: 'No se pudo crear la sala: ' + e.message });
   }
 });
@@ -645,10 +638,7 @@ apiRouter.get('/game/positions/:salaId', authenticateToken, async (req, res) => 
 });
 
 // --- NUEVO: TOP ALUMNOS (Ranking del Docente) ---
-apiRouter.get('/docente/top-performers/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
-  if (req.user.id != req.params.id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
+apiRouter.get('/docente/top-performers/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT u.username, SUM(p.score) as total_score, SUM(p.aciertos) as aciertos
@@ -667,10 +657,7 @@ apiRouter.get('/docente/top-performers/:id', authenticateToken, authorizeRole('p
 });
 
 // --- NUEVO: ALERTAS DE RIESGO (Alumnos con muchos errores o bajo score) ---
-apiRouter.get('/docente/alumnos-riesgo/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
-  if (req.user.id != req.params.id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
+apiRouter.get('/docente/alumnos-riesgo/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT u.username, SUM(p.errores) as total_errores, AVG(p.score) as avg_score
@@ -716,10 +703,7 @@ apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, au
 
 // --- NUEVO: ANÁLISIS DETALLADO POR NIVEL ---
 // Permite al profesor ver en qué niveles específicos fallan más los estudiantes
-apiRouter.get('/docente/analisis-detallado/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
-  if (req.user.id != req.params.id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
+apiRouter.get('/docente/analisis-detallado/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT 
@@ -742,10 +726,7 @@ apiRouter.get('/docente/analisis-detallado/:id', authenticateToken, authorizeRol
   }
 });
 
-apiRouter.get('/docente/stats/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
-  if (req.user.id != req.params.id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
+apiRouter.get('/docente/stats/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT s.id, s.codigo_unico, s.activa, COUNT(ps.estudiante_id) as alumnos, COALESCE(AVG(p.score), 0) as promedio 
@@ -769,10 +750,7 @@ apiRouter.get('/docente/stats/:id', authenticateToken, authorizeRole('profesor')
   }
 });
 
-apiRouter.get('/docente/resultados/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
-  if (req.user.id != req.params.id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
+apiRouter.get('/docente/resultados/:id', authenticateToken, async (req, res) => {
   const salaFiltro = req.query.sala;
   let sql = `
     SELECT 
@@ -841,11 +819,8 @@ apiRouter.post('/salas/unirse', authenticateToken, async (req, res) => {
   }
 });
 
-apiRouter.post('/salas/borrar', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+apiRouter.post('/salas/borrar', authenticateToken, async (req, res) => {
   const { sala_id, docente_id } = req.body;
-  if (req.user.id != docente_id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
   try {
     await db.execute({
       sql: 'UPDATE salas SET activa = 0 WHERE id = ? AND docente_id = ?',
@@ -857,7 +832,7 @@ apiRouter.post('/salas/borrar', authenticateToken, authorizeRole('profesor'), as
   }
 });
 
-apiRouter.post('/salas/toggle-status', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+apiRouter.post('/salas/toggle-status', authenticateToken, async (req, res) => {
   const { sala_id, activa } = req.body;
   try {
     await db.execute({
@@ -905,20 +880,14 @@ apiRouter.post('/game/score', authenticateToken, async (req, res) => {
 // Para salir de beta, al menos lo asociamos a un tracking más limpio.
 const importJobs = new Map();
 
-apiRouter.get('/docente/import-progress/:id', authenticateToken, authorizeRole('profesor'), (req, res) => {
-  if (req.user.id != req.params.id) {
-    return res.status(403).json({ error: 'No autorizado.' });
-  }
+apiRouter.get('/docente/import-progress/:id', authenticateToken, (req, res) => {
   res.json(importJobs.get(req.params.id) || { progress: 0 });
 });
 
 // --- IMPORTACIÓN DE NOTAS DESDE DOCUMENTO ---
-apiRouter.post('/docente/importar-notas', authenticateToken, authorizeRole('profesor'), upload.single('archivo'), async (req, res) => {
+apiRouter.post('/docente/importar-notas', authenticateToken, upload.single('archivo'), async (req, res) => {
   // Obtenemos el ID del docente para trackear su progreso específico
   const docenteId = req.body.docente_id;
-  if (req.user.id != docenteId) {
-    return res.status(403).json({ error: 'No autorizado para importar notas en nombre de otro docente.' });
-  }
 
   if (!req.file) {
     return res.status(400).json({ error: 'No se ha seleccionado ningún archivo.' });

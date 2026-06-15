@@ -7,17 +7,6 @@ const WORLD_HEIGHT = 2000;
 const defaultCanvasWidth = window.innerWidth;
 const defaultCanvasHeight = window.innerHeight;
 
-// --- FUNCIÓN GLOBAL DE CERRAR SESIÓN ---
-window.logout = function() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('username');
-    localStorage.removeItem('rol');
-    localStorage.removeItem('cyberExplorer_SaveData'); // Limpiar también los datos de guardado del juego
-    window.location.href = 'index.html'; // Redirigir a la página de inicio de sesión
-};
-
-
 // --- POOLS DE COMANDOS PARA ALEATORIEDAD ---
 const comandoPools = {
     sql: ["sql-fix --sanitize", "db-patch --input", "query-filter --clean", "stmt-prepare --id", "mysql_secure_installation"],
@@ -205,7 +194,6 @@ function initDomCache() {
     domCache.loadingScreen = document.getElementById("loading-screen");
     domCache.skinSelector = document.getElementById("skin-selector");
     domCache.btnContinuar = document.getElementById("btn-continuar");
-    domCache.landingSplash = document.getElementById("landing-splash");
     domCache.navUserName = document.getElementById("nav-user-name");
     // Movido al HUD superior derecho
     domCache.scoreDisplay = document.getElementById("score-display");
@@ -262,23 +250,26 @@ let proyectilesJugador = [];
 let missionItems = [];
 let otrosJugadores = [];
 let misionProgreso = 0;
-let misionObjetivoRealizado = false;
-let cofres = []; 
-let enemigos = [];
-let items = []; 
-let collisionData = null;
+let misionObjetivoRealizado = false; // Nueva bandera para tareas específicas (hackeo, cofres)
+let cofres = []; // Ahora se pueblan dinámicamente por nivel
+
 const secretos = [
     { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
     { x: 700, y: 100, activo: true }, { x: 1800, y: 1200, activo: true }
 ];
 
-// Variables de estado de juego (se inicializan más abajo en la sección de acción)
+let items = []; // Se reinician y pueblan en spawnEnemigos
+
+let enemigos = [];
+let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
+
+let apagonLuz = 0;
 let damageFlash = 0;
 let tieneLlave = false;
 let consolaActiva = false;
-let codeFragments = 0; 
-let hackTimer = 0; 
-let hackTimerInterval = null; 
+let codeFragments = 0; // Nueva moneda del juego
+let hackTimer = 0; // Tiempo restante para el hackeo
+let hackTimerInterval = null; // ID del intervalo del cronómetro
 let portalSwirlActive = false;
 let portalSwirlX = 0;
 let portalSwirlY = 0;
@@ -295,30 +286,6 @@ function startup() {
         }
 
         if (domCache.loadingScreen) domCache.loadingScreen.classList.add("hidden");
-        if (domCache.landingSplash) domCache.landingSplash.classList.add("splash-hidden");
-
-        // --- NAVEGACIÓN SEGÚN ROL ---
-        const userRole = (localStorage.getItem('rol') || '').toLowerCase();
-        if (userRole === 'profesor') {
-            renderTeacherButton();
-        } else if (userRole === 'estudiante') {
-            renderStudentButton();
-        }
-        
-        renderProfileButton();
-
-        // --- BOTÓN DE CERRAR SESIÓN (PARA AMBOS ROLES) ---
-        if (localStorage.getItem('token')) { // Solo mostrar si hay una sesión activa
-            const logoutBtn = document.createElement("button");
-            logoutBtn.innerHTML = "🚪 CERRAR SESIÓN";
-            logoutBtn.style.position = "fixed";
-            logoutBtn.style.bottom = "20px";
-            logoutBtn.style.right = "20px";
-            logoutBtn.style.zIndex = "10001";
-            logoutBtn.className = "btn btn-secondary";
-            logoutBtn.onclick = () => window.logout();
-            domCache.gameContainer.appendChild(logoutBtn);
-        }
 
         // --- MEJORA: AUTOGUARDADO / AUTO-RECUPERACIÓN ---
         const save = localStorage.getItem("cyberExplorer_SaveData");
@@ -337,111 +304,6 @@ function startup() {
     } catch (e) {
         console.error("Error durante el arranque del sistema:", e);
     }
-}
-
-/**
- * Renderiza un botón para abrir el perfil del usuario
- */
-function renderProfileButton() {
-    const profileBtn = document.createElement("button");
-    profileBtn.innerHTML = "👤 MI PERFIL";
-    profileBtn.className = "btn btn-secondary floating-dashboard-btn";
-    profileBtn.style.left = "10px";
-    profileBtn.style.top = "20px";
-    profileBtn.style.transform = "none";
-    profileBtn.onclick = () => showProfileModal();
-    domCache.gameContainer.appendChild(profileBtn);
-}
-
-/**
- * Muestra el perfil del usuario con acceso directo a sus paneles de gestión.
- */
-async function showProfileModal() {
-    const userId = localStorage.getItem('userId');
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('rol');
-    console.log("showProfileModal: Detected role from localStorage:", role);
-
-    if (!userId || !token) {
-        window.location.href = 'index.html';
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/user/${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const user = await res.json();
-
-        juegoPausado = true;
-        const modal = domCache.quizModal;
-        domCache.quizTitle.innerText = "💻 PERFIL DEL AGENTE";
-        domCache.quizQuestion.innerHTML = `
-            <div style="text-align: center; font-family: 'Courier New', monospace;">
-                <div style="font-size: 4rem; margin-bottom: 10px;">${user.avatar === 'agente_1' ? '👤' : user.avatar}</div>
-                <h2 style="color: var(--primary-color); text-transform: uppercase; margin: 0;">${user.username}</h2>
-                <p style="color: var(--text-muted); font-size: 0.8rem;">ID SEGURIDAD: ${user.id} | ROL: ${user.rol.toUpperCase()}</p>
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border-color);">
-                    <p style="margin: 0; font-size: 0.9rem;">${user.descripcion || 'Sin descripción de protocolo.'}</p>
-                </div>
-                <div style="font-size: 1.2rem; font-weight: bold; color: var(--success-color);">
-                    PUNTUACIÓN TOTAL: ${user.total_score || 0} PTS
-                </div>
-            </div>
-        `;
-
-        domCache.optionsContainer.innerHTML = "";
-        
-        // El botón para ir al panel (Lo que pidió el usuario)
-        const panelBtn = document.createElement("button");
-        panelBtn.className = "btn btn-primary";
-        panelBtn.style.width = "100%";
-        panelBtn.style.marginBottom = "10px";
-        panelBtn.style.padding = "15px";
-        panelBtn.innerHTML = role === 'profesor' ? "⚙️ IR AL PANEL DE CONTROL (CREAR SALAS)" : "📊 VER MIS ESTADÍSTICAS";
-        panelBtn.onclick = () => {
-            window.location.href = role === 'profesor' ? 'teacher_dashboard.html' : 'student_dashboard.html';
-        };
-        domCache.optionsContainer.appendChild(panelBtn);
-
-        modal.classList.remove("hidden");
-        domCache.closeBtn.classList.remove("hidden");
-        domCache.closeBtn.innerText = "CERRAR PERFIL";
-        domCache.closeBtn.onclick = () => {
-            modal.classList.add("hidden");
-            juegoPausado = false;
-        };
-        
-        if (domCache.speechControls) domCache.speechControls.classList.remove("hidden");
-        speakText(`Agente ${user.username}, el sistema está listo para redirigirte a tu panel de control.`);
-
-    } catch (error) {
-        console.error("Error al cargar perfil:", error);
-    }
-}
-
-/**
- * Renderiza un botón de acceso al panel de profesor (solo visible para docentes)
- */
-function renderTeacherButton() {
-    const adminBtn = document.createElement("button");
-    adminBtn.innerHTML = "⚙️ PANEL DOCENTE";
-    adminBtn.className = "btn btn-primary floating-dashboard-btn";
-    adminBtn.style.left = "50%";
-    adminBtn.onclick = () => window.location.href = 'teacher_dashboard.html';
-    domCache.gameContainer.appendChild(adminBtn);
-}
-
-/**
- * Renderiza un botón de acceso al progreso del estudiante
- */
-function renderStudentButton() {
-    const studentBtn = document.createElement("button");
-    studentBtn.innerHTML = "📊 MI PROGRESO";
-    studentBtn.className = "btn btn-secondary floating-dashboard-btn";
-    studentBtn.style.left = "40%"; 
-    studentBtn.onclick = () => window.location.href = 'student_dashboard.html';
-    domCache.gameContainer.appendChild(studentBtn);
 }
 
 // Asegurar inicio correcto
@@ -544,6 +406,18 @@ let decoraciones = [
     { x: 1800, y: 1200, tipo: "banco", dimension: "Pueblo" }, { x: 2200, y: 500, tipo: "casa", dimension: "Pueblo" }
 ];
 
+let items = []; // Ahora se pueblan dinámicamente por nivel en spawnEnemigos
+
+let cofres = []; // Ahora se pueblan dinámicamente por nivel
+
+const secretos = [
+    { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
+    { x: 700, y: 100, activo: true }, { x: 1800, y: 1200, activo: true }
+];
+
+let enemigos = [];
+let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
+
 function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
     console.log("Iniciando carga de dimensión:", nombre);
     dimensionActual = nombre; // CRÍTICO: Sincronizar la dimensión actual para que los objetos se dibujen
@@ -571,43 +445,43 @@ function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
             setTimeout(() => toast.remove(), 12000); // 12 segundos para leer
         }
 
+        if (loadingScreen) loadingScreen.classList.remove("hidden");
+
         juegoPausado = true;
         npcs = []; 
         
         setTimeout(() => {
-            try {
-                // OCULTAR PANTALLA DE CARGA TRAS PROCESAMIENTO
-                if (loadingScreen) loadingScreen.classList.add("hidden");
+            // OCULTAR SIEMPRE LA PANTALLA DE CARGA
+            if (loadingScreen) loadingScreen.classList.add("hidden");
 
-                if (domCache.skinSelector && estadoJuego === "SELECCION") domCache.skinSelector.classList.remove("hidden");
-                
-                // Población procedural del nivel
-                spawnEnemigos(15 + (misionActivaIndex * 8));
-                generarMapaDenso();
-                
-                if (misiones[misionActivaIndex]) {
-                    spawnNPC(misiones[misionActivaIndex].npc);
-                }
+            if (domCache.skinSelector && estadoJuego === "SELECCION") domCache.skinSelector.classList.remove("hidden");
+            
+            // juegoPausado se mantiene true para que la cuenta regresiva funcione
+            
+            // Población procedural del nivel
+            spawnEnemigos(15 + (misionActivaIndex * 8));
+            generarMapaDenso();
+            
+            if (misiones[misionActivaIndex]) {
+                spawnNPC(misiones[misionActivaIndex].npc);
+            }
 
-                // Colocar llave y cofre según el nivel
-                if (dimensionActual === "Archivo") {
-                    items.push({ x: 400, y: 1500, tipo: "key_card", activo: true });
-                }
+            // Colocar llave y cofre según el nivel
+            if (dimensionActual === "Archivo") {
+                items.push({ x: 400, y: 1500, tipo: "key_card", activo: true });
+            }
 
-                if (!loopIniciado) {
-                    loopIniciado = true;
-                    dibujar();
-                }
+            if (!loopIniciado) {
+                loopIniciado = true;
+                dibujar();
+            }
 
-                // Autoguardar inmediatamente al entrar al nivel
-                guardarProgreso();
+            // Autoguardar inmediatamente al entrar al nivel
+            guardarProgreso();
 
-                if (onReadyCallback) {
-                    onReadyCallback();
-                }
-            } catch (innerError) {
-                console.error("Error asíncrono en carga de nivel:", innerError);
-                if (loadingScreen) loadingScreen.classList.add("hidden");
+            // Call the callback when loading is complete
+            if (onReadyCallback) {
+                onReadyCallback();
             }
         }, 100);
     } catch (err) {
@@ -989,9 +863,7 @@ window.addEventListener('load', () => {
 });
 
 const teclas = {};
-window.addEventListener('keydown', (e) => {
-    // Prevenir que la tecla se procese varias veces si se mantiene presionada
-    if (teclas[e.key]) return;
+window.onkeydown = (e) => { 
     teclas[e.key] = true; 
     
     // Toggle pausa del juego con 'P' o 'Esc'
@@ -1001,11 +873,8 @@ window.addEventListener('keydown', (e) => {
             juegoPausado = !juegoPausado;
         }
     }
-});
-
-window.addEventListener('keyup', (e) => {
-    teclas[e.key] = false;
-});
+};
+window.onkeyup = (e) => { teclas[e.key] = false; };
 
 // Evitar que el personaje siga caminando si la ventana pierde el foco
 window.onblur = () => { 
@@ -3350,14 +3219,7 @@ function mostrarReporteFinal() {
     const closeBtn = domCache.closeBtn;
     closeBtn.classList.remove("hidden");
     closeBtn.innerText = "ENVIAR INFORME AL PROFESOR";
-    closeBtn.onclick = () => {
-        const rol = localStorage.getItem('rol');
-        if (rol === 'profesor') {
-            window.location.href = "teacher_dashboard.html";
-        } else {
-            window.location.href = "student_dashboard.html";
-        }
-    };
+    closeBtn.onclick = () => window.location.href = "student_dashboard.html"; // Use domCache.quizModal
 }
 
 function iniciarCombateConsola(tipo, callbackExito) {
