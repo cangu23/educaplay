@@ -41,11 +41,15 @@
         </div>
     </div>
     <script>
-        document.getElementById('registerForm').onsubmit = async (e) => {
+            const registerForm = document.getElementById('registerForm');
+            const regBtn = document.getElementById('regBtn');
+            const msgDiv = document.getElementById('msg');
+
+            registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('regBtn');
-            btn.disabled = true;
-            btn.innerText = "PROCESANDO...";
+                regBtn.disabled = true;
+                regBtn.innerText = "PROCESANDO...";
+                msgDiv.innerText = "";
 
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
@@ -61,13 +65,12 @@
             if (data.status === 'success') {
                 window.location.href = 'index.html';
             } else {
-                const msgDiv = document.getElementById('msg');
-                document.getElementById('msg').style.color = "#ff6b6b";
+                    msgDiv.style.color = "#ff6b6b";
                 msgDiv.innerText = data.error || "Error al registrar";
-                btn.disabled = false;
-                btn.innerText = "Registrar Cuenta";
+                    regBtn.disabled = false;
+                    regBtn.innerText = "Registrar Cuenta";
             }
-        };
+            });
     </script>
 </body>
 </html>
