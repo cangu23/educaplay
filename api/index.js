@@ -11,9 +11,9 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-app.use(express.json());
+app.use(express.json({ limit: '5mb' })); // Soporte para imágenes pesadas en Base64
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Secreto para JWT (En producción usar una variable de entorno JWT_SECRET)
 const JWT_SECRET = process.env.JWT_SECRET || 'eduplay_ultra_secret_2024';
@@ -38,6 +38,14 @@ try {
 } catch (err) {
   console.error("Error al configurar el cliente de Turso:", err.message);
 }
+
+// Middleware para restringir por rol (Asegurando consistencia)
+const authorizeRole = (role) => {
+  return (req, res, next) => {
+    if (req.user && req.user.rol === role) next();
+    else res.status(403).json({ error: 'Acceso denegado: Permisos insuficientes.' });
+  };
+};
 
 // Middleware para verificar el Token JWT
 const authenticateToken = (req, res, next) => {
@@ -127,10 +135,168 @@ apiRouter.use((req, res, next) => {
 
 // --- RUTAS PROTEGIDAS (Ejemplos) ---
 // Podrías aplicar el middleware a rutas específicas o a todo el router excepto auth
-apiRouter.get('/docente/resumen-global/:id', authenticateToken, async (req, res) => {
-    // Solo el dueño del token o un admin debería ver esto
-    if (req.user.rol !== 'profesor') return res.status(403).json({ error: 'No autorizado' });
-    // ... resto del código
+apiRouter.get('/docente/resumen-global/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    // SEGURIDAD: Validar que el profesor solo acceda a su propio ID
+    if (req.user.id != req.params.id) {
+        return res.status(403).json({ error: 'No tienes permiso para ver este resumen.' });
+    }
+    try {
+        const totalSalas = await db.execute({ sql: "SELECT COUNT(*) as count FROM salas WHERE docente_id = ?", args: [req.params.id] });
+        
+        const totalEstudiantes = await db.execute({ 
+          sql: "SELECT COUNT(DISTINCT estudiante_id) as count FROM participantes_sala ps JOIN salas s ON ps.sala_id = s.id WHERE s.docente_id = ?", 
+          args: [req.params.id] 
+        });
+        
+        const promedioGeneral = await db.execute({ 
+          sql: "SELECT AVG(score) as avg FROM progreso_estudiante pe JOIN usuarios u ON pe.estudiante_id = u.id JOIN participantes_sala ps ON u.id = ps.estudiante_id JOIN salas s ON ps.sala_id = s.id WHERE s.docente_id = ?", 
+          args: [req.params.id] 
+        });
+
+        const metricasCiber = await db.execute({
+          sql: `SELECT SUM(p.aciertos) as total_a, SUM(p.errores) as total_e 
+                FROM progreso_estudiante p 
+                JOIN participantes_sala ps ON p.estudiante_id = ps.estudiante_id 
+                JOIN salas s ON ps.sala_id = s.id 
+                WHERE s.docente_id = ?`,
+          args: [req.params.id]
+        });
+
+        const solicitudesP = await db.execute({
+          sql: "SELECT COUNT(*) as count FROM help_requests WHERE teacher_id = ? AND status = 'pending'",
+          args: [req.params.id]
+        });
+
+        res.json({
+          salas_activas: totalSalas.rows[0].count,
+          estudiantes_totales: totalEstudiantes.rows[0].count,
+          rendimiento_promedio: Math.round(promedioGeneral.rows[0].avg || 0),
+          total_aciertos: metricasCiber.rows[0].total_a || 0,
+          total_errores: metricasCiber.rows[0].total_e || 0,
+          ayudas_pendientes: solicitudesP.rows[0].count || 0
+        });
+    } catch (e) {
+        res.status(500).json({ error: 'Error al generar resumen global' });
+    }
+});
+
+// --- NUEVO: MONITOREO EN VIVO (GOD MODE) ---
+// Permite al profesor ver el estado real de todos los alumnos en una sala específica
+apiRouter.get('/docente/sala-live/:salaId', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    try {
+        // Verificamos que la sala pertenezca al docente
+        const checkSala = await db.execute({
+            sql: "SELECT id FROM salas WHERE id = ? AND docente_id = ?",
+            args: [req.params.salaId, req.user.id]
+        });
+
+        if (checkSala.rows.length === 0) return res.status(403).json({ error: "No autorizado." });
+
+        const result = await db.execute({
+            sql: `SELECT u.username, u.id, p.x, p.y, p.color, 
+                         COALESCE(SUM(pr.score), 0) as current_score,
+                         MAX(pr.fecha_actualizacion) as last_action
+                  FROM participantes_sala ps
+                  JOIN usuarios u ON ps.estudiante_id = u.id
+                  LEFT JOIN posiciones_jugadores p ON u.id = p.usuario_id
+                  LEFT JOIN progreso_estudiante pr ON u.id = pr.estudiante_id
+                  WHERE ps.sala_id = ?
+                  GROUP BY u.id`,
+            args: [req.params.salaId]
+        });
+        res.json(result.rows);
+    } catch (e) {
+        res.status(500).json({ error: "Error en monitoreo live: " + e.message });
+    }
+});
+
+// --- NUEVO: SISTEMA DE RECOMPENSAS (BOOST) ---
+// Permite al profesor dar un "empujón" de puntos o vida a un alumno en apuros
+apiRouter.post('/docente/intervenir-alumno', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    const { estudiante_id, tipo, valor } = req.body; // tipo: 'score' | 'lives'
+    try {
+        if (tipo === 'score') {
+            await db.execute({
+                sql: `UPDATE progreso_estudiante SET score = score + ? 
+                      WHERE estudiante_id = ? AND nivel_id = (SELECT MAX(nivel_id) FROM progreso_estudiante WHERE estudiante_id = ?)`,
+                args: [valor, estudiante_id, estudiante_id]
+            });
+        }
+        
+        // Enviamos notificación al chat de la sala para que el alumno lo vea
+        await db.execute({
+            sql: 'INSERT INTO chat_mensajes (sala_id, username, mensaje) VALUES ((SELECT sala_id FROM participantes_sala WHERE estudiante_id = ? LIMIT 1), ?, ?)',
+            args: [estudiante_id, '🎁 SISTEMA', `El profesor ha enviado un bono de ${tipo === 'score' ? valor + ' puntos' : 'vitalidad'}.`]
+        });
+        
+        res.json({ status: 'success', message: 'Intervención realizada con éxito.' });
+    } catch (e) {
+        res.status(500).json({ error: "Fallo al intervenir: " + e.message });
+    }
+});
+
+// --- NUEVO: EXPORTACIÓN DE RESULTADOS (CSV READY) ---
+apiRouter.get('/docente/exportar-datos/:salaId', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    try {
+        const result = await db.execute({
+            sql: `SELECT 
+                    u.cedula, u.username, 
+                    SUM(p.score) as puntaje_total, 
+                    SUM(p.aciertos) as total_aciertos, 
+                    SUM(p.errores) as total_errores,
+                    MAX(p.fecha_actualizacion) as completado_en
+                  FROM participantes_sala ps
+                  JOIN usuarios u ON ps.estudiante_id = u.id
+                  LEFT JOIN progreso_estudiante p ON u.id = p.estudiante_id
+                  WHERE ps.sala_id = ?
+                  GROUP BY u.id`,
+            args: [req.params.salaId]
+        });
+
+        // Preparar formato CSV simple
+        let csv = "Cedula,Usuario,Puntaje,Aciertos,Errores,Fecha\n";
+        result.rows.forEach(r => {
+            csv += `${r.cedula},${r.username},${r.puntaje_total},${r.total_aciertos},${r.total_errores},${r.completado_en}\n`;
+        });
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment(`reporte_sala_${req.params.salaId}.csv`);
+        res.send(csv);
+    } catch (e) {
+        res.status(500).json({ error: "Error al exportar: " + e.message });
+    }
+});
+
+// --- NUEVO: BROADCAST (Mensajes del profesor a toda la sala) ---
+apiRouter.post('/docente/broadcast', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    const { sala_id, mensaje } = req.body;
+    try {
+        await db.execute({
+            sql: 'INSERT INTO chat_mensajes (sala_id, username, mensaje) VALUES (?, ?, ?)',
+            args: [sala_id, '🔔 SISTEMA (PROFESOR)', mensaje]
+        });
+        res.json({ status: 'success', message: 'Mensaje global enviado.' });
+    } catch (e) {
+        res.status(500).json({ error: 'Error al enviar broadcast.' });
+    }
+});
+
+// --- NUEVO: MODERACIÓN DE CHAT ---
+apiRouter.post('/docente/limpiar-chat', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    const { sala_id } = req.body;
+    try {
+        await db.execute({
+            sql: 'DELETE FROM chat_mensajes WHERE sala_id = ?',
+            args: [sala_id]
+        });
+        await db.execute({
+            sql: 'INSERT INTO chat_mensajes (sala_id, username, mensaje) VALUES (?, ?, ?)',
+            args: [sala_id, '🛡️ MODERACIÓN', 'El historial de chat ha sido reiniciado por el profesor.']
+        });
+        res.json({ status: 'success' });
+    } catch (e) {
+        res.status(500).json({ error: 'No se pudo limpiar el chat.' });
+    }
 });
 
 apiRouter.post('/auth/register', async (req, res) => {
@@ -206,7 +372,7 @@ apiRouter.post('/auth/login', async (req, res) => {
 apiRouter.get('/ranking', async (req, res) => {
   try {
     const result = await db.execute({
-      sql: `SELECT u.username, SUM(p.score) as total_score 
+      sql: `SELECT u.username, u.avatar, SUM(p.score) as total_score 
             FROM usuarios u 
             JOIN progreso_estudiante p ON u.id = p.estudiante_id 
             WHERE u.rol = 'estudiante' 
@@ -232,10 +398,11 @@ apiRouter.get('/user/:id', authenticateToken, async (req, res) => {
 });
 
 apiRouter.post('/user/update', authenticateToken, async (req, res) => {
-  const { id, avatar, descripcion } = req.body;
+  const { avatar, descripcion } = req.body;
+  const userId = req.user.id; // SEGURIDAD: Solo se actualiza el perfil del dueño del token
   try {
-    await db.execute({ sql: 'UPDATE usuarios SET avatar = ?, descripcion = ? WHERE id = ?', args: [avatar, descripcion, id] });
-    res.json({ status: 'success' });
+    await db.execute({ sql: 'UPDATE usuarios SET avatar = ?, descripcion = ? WHERE id = ?', args: [avatar, descripcion, userId] });
+    res.json({ status: 'success', message: 'Protocolo de identidad actualizado.' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -557,19 +724,42 @@ apiRouter.get('/docente/analisis-detallado/:id', authenticateToken, async (req, 
 });
 
 // --- NUEVO: DETALLE DE PROGRESO POR NIVEL DE UN ESTUDIANTE ---
-apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, async (req, res) => {
-  try {
-    const result = await db.execute({
-      sql: `SELECT nivel_id, score, aciertos, errores, fecha_actualizacion 
-            FROM progreso_estudiante 
-            WHERE estudiante_id = ? 
-            ORDER BY nivel_id ASC`,
-      args: [req.params.idEstudiante]
-    });
-    res.json(result.rows);
-  } catch (e) {
-    res.status(500).json({ error: 'Error al obtener detalle del estudiante' });
-  }
+// Permite al profesor ver el historial completo de un alumno específico
+apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    try {
+        // SEGURIDAD: Verificar que el estudiante pertenece a alguna sala del docente que consulta
+        const vinculacion = await db.execute({
+            sql: `SELECT 1 FROM participantes_sala ps 
+                  JOIN salas s ON ps.sala_id = s.id 
+                  WHERE ps.estudiante_id = ? AND s.docente_id = ? LIMIT 1`,
+            args: [req.params.idEstudiante, req.user.id]
+        });
+
+        if (vinculacion.rows.length === 0) {
+            return res.status(403).json({ error: "No tienes permiso para auditar a este estudiante." });
+        }
+
+        // Obtener info del usuario y su progreso
+        const infoUsuario = await db.execute({
+            sql: "SELECT username, cedula FROM usuarios WHERE id = ?",
+            args: [req.params.idEstudiante]
+        });
+
+        const progreso = await db.execute({
+            sql: `SELECT nivel_id, score, aciertos, errores, fecha_actualizacion 
+                  FROM progreso_estudiante 
+                  WHERE estudiante_id = ? 
+                  ORDER BY nivel_id ASC`,
+            args: [req.params.idEstudiante]
+        });
+
+        res.json({
+            estudiante: infoUsuario.rows[0],
+            historial: progreso.rows
+        });
+    } catch (e) {
+        res.status(500).json({ error: 'Error al obtener detalle individual: ' + e.message });
+    }
 });
 
 apiRouter.get('/docente/stats/:id', authenticateToken, async (req, res) => {
@@ -694,6 +884,19 @@ apiRouter.post('/salas/toggle-status', authenticateToken, async (req, res) => {
 apiRouter.post('/game/score', authenticateToken, async (req, res) => {
   try {
     const { estudiante_id, nivel_id, score, aciertos, errores } = req.body;
+
+    // --- SISTEMA ANTI-CHEAT (DATOS REALES) ---
+    // 1. Cada nivel tiene exactamente 7 preguntas (según content.js)
+    if ((aciertos + errores) > 7) {
+        return res.status(400).json({ error: "Inconsistencia de datos: El total de respuestas supera el límite del nivel." });
+    }
+
+    // 2. Validación de puntaje máximo lógico (Cada acierto da ~500 max + bonus)
+    const MAX_PUNTOS_POR_NIVEL = 5000; 
+    if (score > MAX_PUNTOS_POR_NIVEL) {
+        return res.status(400).json({ error: "Puntaje fuera de rango de seguridad." });
+    }
+
     await db.execute({
       sql: `INSERT INTO progreso_estudiante (estudiante_id, nivel_id, score, aciertos, errores) VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(estudiante_id, nivel_id) DO UPDATE SET 

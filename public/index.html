@@ -25,9 +25,9 @@
         <section class="hero-section">
             <h1 class="hero-title">Eduplay OS</h1>
             <p style="color: var(--text-muted); font-size: 1.1rem; max-width: 800px; margin: 0 auto 20px; line-height: 1.6;">
-                Eduplay es el ecosistema definitivo de **Ciber-Entrenamiento**. Diseñado para cerrar la brecha entre la teoría académica y la práctica técnica, nuestro sistema utiliza simulaciones inmersivas basadas en escenarios reales de amenazas globales.
+                Plataforma de entrenamiento interactivo en ciberseguridad. Diseñada para facilitar el aprendizaje práctico de protocolos de defensa, gestión de redes y respuesta ante incidentes en un entorno simulado controlado.
             </p>
-            <p style="color: var(--accent-color); font-weight: 600; margin-bottom: 40px;">PROTEGE EL NÚCLEO. DEFIENDE LA RED. DOMINA EL PROTOCOLO.</p>
+            <p style="color: var(--accent-color); font-weight: 600; margin-bottom: 40px;">SIMULACIÓN TÁCTICA // APRENDIZAJE BASADO EN RETOS</p>
             <div style="display: flex; justify-content: center; gap: 15px;">
                 <a href="#login-anchor" class="btn btn-primary">Acceder al Sistema</a>
                 <a href="register.html" class="btn btn-secondary">Crear Identidad</a>
@@ -38,16 +38,16 @@
         <section class="widget" style="margin-bottom: 60px; background: linear-gradient(145deg, var(--card-bg), #f1f5f9);">
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; text-align: left; padding: 20px;">
                 <div>
-                    <h4 style="color: var(--primary-color);">🛡️ Simulación Realista</h4>
-                    <p style="font-size: 0.85rem; color: var(--text-muted);">Enfréntate a ataques tipo Ransomware, Phishing y Exploits Zero-Day en entornos controlados pero desafiantes.</p>
+                    <h4 style="color: var(--primary-color);">🛡️ Escenarios Prácticos</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Resolución de retos sobre inyección SQL, ataques de fuerza bruta y gestión de certificados SSL en tiempo real.</p>
                 </div>
                 <div>
-                    <h4 style="color: var(--primary-color);">📊 Analítica Avanzada</h4>
-                    <p style="font-size: 0.85rem; color: var(--text-muted);">Seguimiento en tiempo real del rendimiento del agente, precisión en respuesta a incidentes y gestión de recursos.</p>
+                    <h4 style="color: var(--primary-color);">📊 Seguimiento Docente</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Panel de control para profesores con estadísticas individuales, aciertos, errores y progreso por nivel.</p>
                 </div>
                 <div>
-                    <h4 style="color: var(--primary-color);">🌐 Multijugador Táctico</h4>
-                    <p style="font-size: 0.85rem; color: var(--text-muted);">Colabora con otros agentes en misiones conjuntas para asegurar infraestructuras críticas nacionales.</p>
+                    <h4 style="color: var(--primary-color);">🌐 Entorno Colaborativo</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Sistema multijugador que permite visualizar el progreso de otros agentes y participar en un chat de sala activo.</p>
                 </div>
             </div>
         </section>
@@ -55,16 +55,16 @@
         <!-- Stats Section -->
         <div class="dashboard-grid" style="margin-bottom: 60px;">
             <div class="widget" style="text-align: center;">
-                <h3 style="color: var(--success-color); font-size: 2rem; margin: 0;">2.4k+</h3>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 5px 0 0;">AGENTES ACTIVOS</p>
+                <h3 style="color: var(--success-color); font-size: 2rem; margin: 0;">REAL-TIME</h3>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 5px 0 0;">SINCRONIZACIÓN</p>
             </div>
             <div class="widget" style="text-align: center;">
-                <h3 style="color: var(--accent-color); font-size: 2rem; margin: 0;">150+</h3>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 5px 0 0;">MISIONES DESPLEGADAS</p>
+                <h3 style="color: var(--accent-color); font-size: 2rem; margin: 0;">5</h3>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 5px 0 0;">NIVELES TÉCNICOS</p>
             </div>
             <div class="widget" style="text-align: center;">
-                <h3 style="color: var(--white); font-size: 2rem; margin: 0;">98%</h3>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 5px 0 0;">INTEGRIDAD DEL SISTEMA</p>
+                <h3 style="color: var(--white); font-size: 2rem; margin: 0;">SQLITE</h3>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 5px 0 0;">PERSISTENCIA DE DATOS</p>
             </div>
         </div>
 
@@ -75,12 +75,12 @@
                 <thead>
                     <tr>
                         <th style="width: 100px;">Rango</th>
-                        <th>Agente</th>
+                        <th colspan="2">Agente</th>
                         <th style="text-align: right;">Puntuación Total</th>
                     </tr>
                 </thead>
                 <tbody id="ranking-body">
-                    <tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--text-muted);">Cargando ranking global...</td></tr>
+                    <tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">Cargando ranking global...</td></tr>
                 </tbody>
             </table>
         </section>
@@ -259,26 +259,34 @@
 
                 async function loadRanking() {
                     const body = document.getElementById('ranking-body');
+                    const avatarsMap = { 'agente_1': '👤', 'agente_2': '🕵️', 'agente_3': '🤖', 'agente_4': '🛡️', 'agente_5': '⚡', 'agente_6': '💻' };
+
                     try {
                         const res = await fetch('/api/ranking');
                         const data = await res.json();
                         if (data.length === 0) {
-                            body.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--text-muted);">No hay registros de misiones completadas aún.</td></tr>';
+                            body.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">No hay registros de misiones completadas aún.</td></tr>';
                             return;
                         }
                         body.innerHTML = data.map((r, index) => {
                             const medals = ["🥇", "🥈", "🥉"];
                             const medal = medals[index] ? medals[index] + " " : "";
+
+                            const avatarContent = avatarsMap[r.avatar] 
+                                ? `<span style="font-size: 1.5rem;">${avatarsMap[r.avatar]}</span>`
+                                : `<img src="${r.avatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--primary-color); vertical-align: middle;">`;
+
                             return `
                                 <tr class="ranking-row" style="animation-delay: ${index * 0.1}s;">
                                     <td style="font-weight: bold; color: var(--accent-color);">#${index + 1}</td>
+                                    <td style="width: 40px; text-align: center; padding-right: 0;">${avatarContent}</td>
                                     <td>${medal}${r.username}</td>
                                     <td class="score-val" style="text-align: right;">${Math.floor(r.total_score)} PTS</td>
                                 </tr>
                             `;
                         }).join('');
                     } catch (e) {
-                        body.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--danger-color);">Error al conectar con la base de datos.</td></tr>';
+                        body.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--danger-color);">Error al conectar con la base de datos.</td></tr>';
                     }
                 }
 

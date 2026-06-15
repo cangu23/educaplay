@@ -229,6 +229,7 @@ function initDomCache() {
     domCache.hudAccessCode = document.getElementById("hud-access-code");
     domCache.hudCredentialsList = document.getElementById("hud-credentials-list");
     domCache.hudAccessCodeTitle = document.getElementById("hud-access-code-title");
+    domCache.shopModal = document.getElementById("shop-modal");
 }
 
 // --- SISTEMA DE TEXTOS FLOTANTES (Puntos, etc.) ---
@@ -1411,6 +1412,15 @@ function actualizarNPCs() {
             npc.isNearPlayer = true;
             if (domCache.speechControls) domCache.speechControls.classList.remove("hidden");
             
+            // NUEVO: Lógica de Tienda
+            if (npc.isShopkeeper && teclas['e'] && !consolaActiva) {
+                juegoPausado = true;
+                if (domCache.shopModal) {
+                    domCache.shopModal.classList.remove("hidden");
+                    speakText("Bienvenido agente. ¿Necesitas suministros para tu misión?");
+                }
+            }
+            
             if (!wasNear && npc.mensaje && 'speechSynthesis' in window) {
                 speakText(npc.mensaje);
             }
@@ -1532,6 +1542,25 @@ function dibujarNPCs() {
         ctx.restore();
     });
 }
+
+// NUEVO: Función para comprar items
+window.comprarItem = function(itemType, costo) {
+    if (codeFragments >= costo) {
+        codeFragments -= costo;
+        if (itemType === 'health_pack') {
+            jugador.inventory.push({ type: 'health_pack', name: 'Botiquín' });
+            crearFloatingText(jugador.x, jugador.y, "+1 BOTIQUÍN", "#4ade80");
+        } else if (itemType === 'shield') {
+            jugador.shieldActive = 600; // 10 segundos de escudo
+            crearFloatingText(jugador.x, jugador.y, "ESCUDO ACTIVADO", "#38bdf8");
+        }
+        play8BitSound('success');
+        if (domCache.codeFragmentsDisplay) domCache.codeFragmentsDisplay.innerText = codeFragments;
+    } else {
+        speakText("No tienes suficientes fragmentos de código.");
+        crearFloatingText(jugador.x, jugador.y, "FALTAN RECURSOS", "#ef4444");
+    }
+};
 
 /**
  * Updates the game state (Physics, Input, Logic)
@@ -1820,7 +1849,7 @@ function dibujar() {
 
                 if (esNecesaria) {
                     ctx.fillStyle = "#4ade80"; ctx.font = "bold 24px 'Courier New'";
-                    const label = esTerminalCentral ? "TERMINAL CENTRAL" : "ACCEDER SISTEMA";
+                    const label = esTerminalCentral ? "TERMINAL CENTRAL" : (npcs.some(n => n.isNearPlayer && n.isShopkeeper) ? "COMERCIAR" : "ACCEDER SISTEMA");
                     ctx.fillText(`[E] ${label}`, d.x - 40, d.y - 25);
                     if (teclas['e'] && !consolaActiva && !juegoPausado) {
                     const cat = dimensionActual === "Océano" ? "sql" : (dimensionActual === "Bosque" ? "ssl" : (dimensionActual === "Núcleo" ? "patch" : "network"));
