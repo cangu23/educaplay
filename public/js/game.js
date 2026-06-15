@@ -251,6 +251,18 @@ let missionItems = [];
 let otrosJugadores = [];
 let misionProgreso = 0;
 let misionObjetivoRealizado = false; // Nueva bandera para tareas específicas (hackeo, cofres)
+let cofres = []; // Ahora se pueblan dinámicamente por nivel
+
+const secretos = [
+    { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
+    { x: 700, y: 100, activo: true }, { x: 1800, y: 1200, activo: true }
+];
+
+let items = []; // Se reinician y pueblan en spawnEnemigos
+
+let enemigos = [];
+let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
+
 let apagonLuz = 0;
 let damageFlash = 0;
 let tieneLlave = false;
@@ -394,15 +406,9 @@ let decoraciones = [
     { x: 1800, y: 1200, tipo: "banco", dimension: "Pueblo" }, { x: 2200, y: 500, tipo: "casa", dimension: "Pueblo" }
 ];
 
-const items = [
-    { x: 400, y: 500, tipo: "espada", activo: true },
-    { x: 1800, y: 300, tipo: "espada", activo: true },
-    { x: 1000, y: 1000, tipo: "pistola", activo: true }
-];
+let items = []; // Ahora se pueblan dinámicamente por nivel en spawnEnemigos
 
-let cofres = [
-    { x: 1400, y: 800, abierto: false, recompensa: "HASH_V1", dimension: "Archivo" }
-];
+let cofres = []; // Ahora se pueblan dinámicamente por nivel
 
 const secretos = [
     { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
@@ -414,6 +420,7 @@ let collisionData = null; // No se usará para colisiones de imagen, pero se man
 
 function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
     console.log("Iniciando carga de dimensión:", nombre);
+    dimensionActual = nombre; // CRÍTICO: Sincronizar la dimensión actual para que los objetos se dibujen
     
     const loadingScreen = domCache.loadingScreen;
     
@@ -687,6 +694,14 @@ function spawnEnemigos(cantidad, append = false) {
         enemigos = [];
         proyectilesEnemigos = [];
         missionItems = [];
+        cofres = []; // Limpiar cofres de niveles anteriores
+
+        // Reiniciar items básicos
+        items = [
+            { x: 400, y: 500, tipo: "espada", activo: true },
+            { x: 1800, y: 300, tipo: "espada", activo: true },
+            { x: 1000, y: 1000, tipo: "pistola", activo: true }
+        ];
 
         // Evitar limpiar el inventario si venimos de una recuperación de datos
         if (jugador.missionInventory.length === 0) {
@@ -729,6 +744,14 @@ function spawnEnemigos(cantidad, append = false) {
                     inv.tipo === mi.tipo && inv.char === mi.char
                 );
             });
+        }
+
+        // --- POBLACIÓN DE OBJETOS ESPECIALES POR NIVEL ---
+        if (dimensionActual === "Archivo") {
+            // Añadir cofre (Nodo de Datos)
+            cofres.push({ x: 1400, y: 800, abierto: false, recompensa: "HASH_V1", dimension: "Archivo" });
+            // Añadir Key-Card
+            items.push({ x: 400, y: 1500, tipo: "key_card", activo: true });
         }
 
         items.forEach(it => it.activo = true);
