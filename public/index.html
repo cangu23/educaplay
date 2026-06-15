@@ -212,6 +212,7 @@
                                 throw new Error("El rol seleccionado no coincide con tu cuenta");
                             }
 
+                            localStorage.setItem('token', data.token);
                             localStorage.setItem('userId', data.user.id);
                             localStorage.setItem('username', data.user.username);
                         
@@ -242,7 +243,10 @@
                     try {
                         const res = await fetch('/api/salas/unirse', {
                             method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            },
                             body: JSON.stringify({ codigo: code, estudiante_id: userId })
                         });
                         const data = await res.json();

@@ -83,7 +83,10 @@
             e.preventDefault();
             const res = await fetch('/api/salas/unirse', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
                 body: JSON.stringify({
                     codigo: document.getElementById('codigo').value,
                     estudiante_id: localStorage.getItem('userId')

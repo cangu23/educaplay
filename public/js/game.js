@@ -1791,13 +1791,26 @@ function dibujar() {
             const esTerminalCentral = mision && mision.tipo === "consola" && distAMision < 200;
             const esNecesaria = mision && (esTerminalCentral || mision.tipo === "combate_consola" || mision.tipo === "final_consola");
 
-            if (esNecesaria) {
-                ctx.shadowBlur = 15;
+            if (esTerminalCentral) {
+                // Efecto de baliza en el suelo para la Terminal Central
+                ctx.save();
+                ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.01) * 0.2;
+                ctx.fillStyle = "#4ade80";
+                ctx.beginPath();
+                ctx.arc(d.x + 30, d.y + 30, 40 + Math.sin(Date.now() * 0.005) * 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.shadowBlur = 20;
                 ctx.shadowColor = "#4ade80";
+            } else if (esNecesaria) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#38bdf8";
             }
 
             const dist = Math.hypot(jugador.x - (d.x + 30), jugador.y - (d.y + 15));
-            if (dist < 120) {
+            // Mostrar label de Terminal Central desde más lejos
+            if (dist < (esTerminalCentral ? 350 : 120)) {
                 // Efecto Estática/Error al acercarse (FNAF Style)
                 ctx.fillStyle = (Math.random() > 0.8) ? "#a52a2a" : (Math.random() > 0.5 ? "#333" : "#000");
                 ctx.fillRect(d.x + 18, d.y + 3, 24, 14);
@@ -1806,9 +1819,9 @@ function dibujar() {
                 if (Math.random() > 0.7) ctx.fillText("SYSTEM ERR", d.x + 19, d.y + 12);
 
                 if (esNecesaria) {
-                    ctx.fillStyle = "#4ade80"; ctx.font = "bold 10px Arial";
+                    ctx.fillStyle = "#4ade80"; ctx.font = "bold 24px 'Courier New'";
                     const label = esTerminalCentral ? "TERMINAL CENTRAL" : "ACCEDER SISTEMA";
-                    ctx.fillText(`[E] ${label}`, d.x, d.y - 10);
+                    ctx.fillText(`[E] ${label}`, d.x - 40, d.y - 25);
                     if (teclas['e'] && !consolaActiva && !juegoPausado) {
                     const cat = dimensionActual === "Océano" ? "sql" : (dimensionActual === "Bosque" ? "ssl" : (dimensionActual === "Núcleo" ? "patch" : "network"));
                     iniciarCombateConsola(cat, () => {
@@ -1951,8 +1964,8 @@ function dibujar() {
 
             // Lógica de Entrada
             if (Math.hypot(jugador.x - (d.x + 60), jugador.y - (d.y + 85)) < 60) {
-                ctx.fillStyle = "white"; ctx.font = "10px Arial";
-                ctx.fillText("[E] ENTRAR AL MALL", d.x + 20, d.y + 65);
+                ctx.fillStyle = "#fff"; ctx.font = "bold 20px Arial";
+                ctx.fillText("[E] ENTRAR AL MALL", d.x - 30, d.y + 60);
                 if (teclas['e'] && !juegoPausado) {
                     dimensionActual = "Centro Comercial";
                     jugador.x = 1250; jugador.y = 1000; // Teletransporte al centro del interior
@@ -1973,8 +1986,8 @@ function dibujar() {
             }
             // Opción de entrar al Data Center
             if (Math.hypot(jugador.x - (d.x + 40), jugador.y - (d.y + 140)) < 50) {
-                ctx.fillStyle = "#22d3ee"; ctx.font = "bold 10px Arial";
-                ctx.fillText("[E] ACCESO SERVIDORES", d.x - 10, d.y + 155);
+                ctx.fillStyle = "#22d3ee"; ctx.font = "bold 16px Arial";
+                ctx.fillText("[E] ACCESO SERVIDORES", d.x - 30, d.y + 180);
                 if (teclas['e'] && !juegoPausado) {
                     dimensionActual = "Data Center";
                     jugador.x = 500; jugador.y = 500;
@@ -2215,8 +2228,8 @@ function dibujar() {
         const d = Math.hypot(jugador.x - c.x, jugador.y - c.y);
         if (d < 50 && !c.abierto) {
             ctx.fillStyle = "white";
-            ctx.font = "10px Arial";
-            ctx.fillText(tieneLlave ? "[E] ABRIR NODO" : "NECESITAS KEY-CARD", -30, -25);
+            ctx.font = "bold 16px Arial";
+            ctx.fillText(tieneLlave ? "[E] ABRIR NODO" : "NECESITAS KEY-CARD", -60, -30);
             if (teclas['e'] && tieneLlave) {
                 c.abierto = true;
                 score += 1000;
@@ -2516,9 +2529,12 @@ function dibujar() {
         // Dibujar misiones activas (Portal/Boss)
         misiones.forEach(mision => {
             if (!mision.completada) {
-                ctx.fillStyle = "#ffb000";
+                const isCurrent = misiones.indexOf(mision) === misionActivaIndex;
+                ctx.fillStyle = isCurrent ? "#4ade80" : "#ffb000";
+                const pulse = isCurrent ? Math.sin(Date.now() * 0.01) * 2 : 0;
+                
                 ctx.beginPath();
-                ctx.arc(minimapX + mision.x * scaleX, minimapY + mision.y * scaleY, 3, 0, Math.PI * 2);
+                ctx.arc(minimapX + mision.x * scaleX, minimapY + mision.y * scaleY, (isCurrent ? 4 : 3) + pulse, 0, Math.PI * 2);
                 ctx.fill();
             }
         });
@@ -2652,7 +2668,8 @@ function enviarPuntajeAlServidor(aciertos = 0, errores = 0) {
     fetch("/api/game/score", { // Endpoint correcto para guardar puntaje
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
             estudiante_id: userId,
@@ -2674,7 +2691,10 @@ function syncPosition() {
 
     fetch('/api/game/position', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({
             usuario_id: userId,
             sala_id: salaId,

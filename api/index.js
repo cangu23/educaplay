@@ -7,12 +7,16 @@ const path = require('path');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
+
+// Secreto para JWT (En producción usar una variable de entorno JWT_SECRET)
+const JWT_SECRET = process.env.JWT_SECRET || 'eduplay_ultra_secret_2024';
 
 // Servir archivos estáticos (Necesario para local y como respaldo en Vercel)
 app.use(express.static(path.join(__dirname, '../public')));
@@ -34,6 +38,20 @@ try {
 } catch (err) {
   console.error("Error al configurar el cliente de Turso:", err.message);
 }
+
+// Middleware para verificar el Token JWT
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Formato: "Bearer TOKEN"
+
+  if (!token) return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Token inválido o expirado.' });
+    req.user = user;
+    next();
+  });
+};
 
 // Inicialización de tablas (Ejecución controlada)
 async function initDB() {
@@ -107,6 +125,14 @@ apiRouter.use((req, res, next) => {
   next();
 });
 
+// --- RUTAS PROTEGIDAS (Ejemplos) ---
+// Podrías aplicar el middleware a rutas específicas o a todo el router excepto auth
+apiRouter.get('/docente/resumen-global/:id', authenticateToken, async (req, res) => {
+    // Solo el dueño del token o un admin debería ver esto
+    if (req.user.rol !== 'profesor') return res.status(403).json({ error: 'No autorizado' });
+    // ... resto del código
+});
+
 apiRouter.post('/auth/register', async (req, res) => {
   const { username, password, rol, cedula } = req.body;
 
@@ -164,7 +190,11 @@ apiRouter.post('/auth/login', async (req, res) => {
     const result = await db.execute({ sql: 'SELECT * FROM usuarios WHERE username = ? OR cedula = ?', args: [identifier, identifier] });
     const user = result.rows[0];
     if (user && await bcrypt.compare(password, user.password)) {
-      res.json({ status: 'success', user: { id: user.id, username: user.username, rol: user.rol } });
+      // Generar Token de Sesión Real
+      const token = jwt.sign(
+        { id: user.id, username: user.username, rol: user.rol },
+        JWT_SECRET, { expiresIn: '8h' });
+      res.json({ status: 'success', token, user: { id: user.id, username: user.username, rol: user.rol } });
     } else { res.status(401).json({ error: 'Credenciales inválidas' }); }
   } catch (e) {
     console.error("Error en login:", e.message);
@@ -193,7 +223,7 @@ apiRouter.get('/ranking', async (req, res) => {
 });
 
 // --- PERFIL DE USUARIO ---
-apiRouter.get('/user/:id', async (req, res) => {
+apiRouter.get('/user/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({ sql: 'SELECT id, username, rol, avatar, descripcion FROM usuarios WHERE id = ?', args: [req.params.id] });
     const stats = await db.execute({ sql: 'SELECT SUM(score) as total FROM progreso_estudiante WHERE estudiante_id = ?', args: [req.params.id] });
@@ -201,7 +231,7 @@ apiRouter.get('/user/:id', async (req, res) => {
   } catch (e) { console.error("Error al obtener perfil de usuario:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/user/update', async (req, res) => {
+apiRouter.post('/user/update', authenticateToken, async (req, res) => {
   const { id, avatar, descripcion } = req.body;
   try {
     await db.execute({ sql: 'UPDATE usuarios SET avatar = ?, descripcion = ? WHERE id = ?', args: [avatar, descripcion, id] });
@@ -210,7 +240,7 @@ apiRouter.post('/user/update', async (req, res) => {
 });
 
 // --- BÚSQUEDA DE USUARIOS ---
-apiRouter.get('/users/search', async (req, res) => {
+apiRouter.get('/users/search', authenticateToken, async (req, res) => {
   const { q, viewerId } = req.query;
   if (!q || q.length < 2) return res.json([]);
   try {
@@ -229,14 +259,14 @@ apiRouter.get('/users/search', async (req, res) => {
 });
 
 // --- CHAT ---
-apiRouter.get('/chat/:salaId', async (req, res) => {
+apiRouter.get('/chat/:salaId', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({ sql: 'SELECT * FROM chat_mensajes WHERE sala_id = ? ORDER BY fecha DESC LIMIT 50', args: [req.params.salaId] });
     res.json(result.rows.reverse());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/chat/send', async (req, res) => {
+apiRouter.post('/chat/send', authenticateToken, async (req, res) => {
   const { sala_id, username, mensaje } = req.body;
   try {
     await db.execute({ sql: 'INSERT INTO chat_mensajes (sala_id, username, mensaje) VALUES (?, ?, ?)', args: [sala_id, username, mensaje] });
@@ -245,7 +275,7 @@ apiRouter.post('/chat/send', async (req, res) => {
 });
 
 // --- AMISTADES ---
-apiRouter.post('/friends/request', async (req, res) => {
+apiRouter.post('/friends/request', authenticateToken, async (req, res) => {
   const { sender_id, receiver_id } = req.body;
   if (sender_id === receiver_id) return res.status(400).json({ error: 'No puedes enviarte una solicitud a ti mismo.' });
   try {
@@ -268,7 +298,7 @@ apiRouter.post('/friends/request', async (req, res) => {
   } catch (e) { console.error("Error al enviar solicitud de amistad:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/friends/accept', async (req, res) => {
+apiRouter.post('/friends/accept', authenticateToken, async (req, res) => {
   const { request_id } = req.body;
   try {
     const result = await db.execute({
@@ -283,7 +313,7 @@ apiRouter.post('/friends/accept', async (req, res) => {
   } catch (e) { console.error("Error al aceptar solicitud de amistad:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.get('/friends/pending/:userId', async (req, res) => {
+apiRouter.get('/friends/pending/:userId', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT f.id, u.username as sender_username, u.id as sender_id 
@@ -295,7 +325,7 @@ apiRouter.get('/friends/pending/:userId', async (req, res) => {
   } catch (e) { console.error("Error al obtener solicitudes pendientes:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.get('/friends/:userId', async (req, res) => {
+apiRouter.get('/friends/:userId', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT u.id, u.username, u.avatar, u.descripcion 
@@ -308,7 +338,7 @@ apiRouter.get('/friends/:userId', async (req, res) => {
   } catch (e) { console.error("Error al obtener lista de amigos:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/friends/reject', async (req, res) => {
+apiRouter.post('/friends/reject', authenticateToken, async (req, res) => {
   const { request_id } = req.body;
   try {
     await db.execute({
@@ -319,7 +349,7 @@ apiRouter.post('/friends/reject', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/friends/remove', async (req, res) => {
+apiRouter.post('/friends/remove', authenticateToken, async (req, res) => {
   const { user_id1, user_id2 } = req.body;
   try {
     await db.execute({
@@ -330,7 +360,7 @@ apiRouter.post('/friends/remove', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.get('/friends/status/:userId1/:userId2', async (req, res) => {
+apiRouter.get('/friends/status/:userId1/:userId2', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: 'SELECT * FROM friends WHERE (user_id1 = ? AND user_id2 = ?) OR (user_id1 = ? AND user_id2 = ?)',
@@ -348,7 +378,7 @@ apiRouter.get('/friends/status/:userId1/:userId2', async (req, res) => {
 });
 
 // --- AYUDA ACADÉMICA ---
-apiRouter.post('/help/request', async (req, res) => {
+apiRouter.post('/help/request', authenticateToken, async (req, res) => {
   const { student_id, teacher_id, points_requested, grade_points_equivalent } = req.body;
   try {
     await db.execute({
@@ -359,14 +389,14 @@ apiRouter.post('/help/request', async (req, res) => {
   } catch (e) { console.error("Error al solicitar ayuda:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.get('/help/requests/:teacherId', async (req, res) => {
+apiRouter.get('/help/requests/:teacherId', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({ sql: 'SELECT hr.id, u.username as student_username, hr.points_requested, hr.grade_points_equivalent, hr.status, hr.request_date FROM help_requests hr JOIN usuarios u ON hr.student_id = u.id WHERE hr.teacher_id = ? ORDER BY hr.request_date DESC', args: [req.params.teacherId] });
     res.json(result.rows);
   } catch (e) { console.error("Error al obtener solicitudes de ayuda para docente:", e.message); res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/help/request/status', async (req, res) => {
+apiRouter.post('/help/request/status', authenticateToken, async (req, res) => {
   const { request_id, status } = req.body; // status: 'approved' o 'rejected'
   try {
     const result = await db.execute({
@@ -382,7 +412,7 @@ apiRouter.post('/help/request/status', async (req, res) => {
 });
 
 // --- MULTIJUGADOR (POSICIONES) ---
-apiRouter.post('/game/position', async (req, res) => {
+apiRouter.post('/game/position', authenticateToken, async (req, res) => {
   const { usuario_id, sala_id, x, y, color, username } = req.body;
   try {
     await db.execute({
@@ -395,7 +425,7 @@ apiRouter.post('/game/position', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.get('/game/positions/:salaId', async (req, res) => {
+apiRouter.get('/game/positions/:salaId', authenticateToken, async (req, res) => {
   try {
     // Solo obtenemos jugadores activos en los últimos 30 segundos
     const result = await db.execute({
@@ -406,7 +436,7 @@ apiRouter.get('/game/positions/:salaId', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/salas/crear', async (req, res) => {
+apiRouter.post('/salas/crear', authenticateToken, async (req, res) => {
   try {
     const { docente_id, duracion, capacidad, game_url } = req.body;
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -463,7 +493,7 @@ apiRouter.get('/docente/resumen-global/:id', async (req, res) => {
 });
 
 // --- NUEVO: TOP ALUMNOS (Ranking del Docente) ---
-apiRouter.get('/docente/top-performers/:id', async (req, res) => {
+apiRouter.get('/docente/top-performers/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT u.username, SUM(p.score) as total_score, SUM(p.aciertos) as aciertos
@@ -482,7 +512,7 @@ apiRouter.get('/docente/top-performers/:id', async (req, res) => {
 });
 
 // --- NUEVO: ALERTAS DE RIESGO (Alumnos con muchos errores o bajo score) ---
-apiRouter.get('/docente/alumnos-riesgo/:id', async (req, res) => {
+apiRouter.get('/docente/alumnos-riesgo/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT u.username, SUM(p.errores) as total_errores, AVG(p.score) as avg_score
@@ -503,7 +533,7 @@ apiRouter.get('/docente/alumnos-riesgo/:id', async (req, res) => {
 
 // --- NUEVO: ANÁLISIS DETALLADO POR NIVEL ---
 // Permite al profesor ver en qué niveles específicos fallan más los estudiantes
-apiRouter.get('/docente/analisis-detallado/:id', async (req, res) => {
+apiRouter.get('/docente/analisis-detallado/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT 
@@ -527,7 +557,7 @@ apiRouter.get('/docente/analisis-detallado/:id', async (req, res) => {
 });
 
 // --- NUEVO: DETALLE DE PROGRESO POR NIVEL DE UN ESTUDIANTE ---
-apiRouter.get('/docente/detalle-estudiante/:idEstudiante', async (req, res) => {
+apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT nivel_id, score, aciertos, errores, fecha_actualizacion 
@@ -542,7 +572,7 @@ apiRouter.get('/docente/detalle-estudiante/:idEstudiante', async (req, res) => {
   }
 });
 
-apiRouter.get('/docente/stats/:id', async (req, res) => {
+apiRouter.get('/docente/stats/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: `SELECT s.id, s.codigo_unico, s.activa, COUNT(ps.estudiante_id) as alumnos, COALESCE(AVG(p.score), 0) as promedio 
@@ -566,7 +596,7 @@ apiRouter.get('/docente/stats/:id', async (req, res) => {
   }
 });
 
-apiRouter.get('/docente/resultados/:id', async (req, res) => {
+apiRouter.get('/docente/resultados/:id', authenticateToken, async (req, res) => {
   const salaFiltro = req.query.sala;
   let sql = `
     SELECT 
@@ -604,7 +634,7 @@ apiRouter.get('/docente/resultados/:id', async (req, res) => {
   }
 });
 
-apiRouter.get('/salas/status/:id', async (req, res) => {
+apiRouter.get('/salas/status/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.execute({
       sql: "SELECT (duracion_minutos * 60) - (strftime('%s', 'now') - strftime('%s', fecha_creacion)) as segundos_restantes FROM salas WHERE id = ?",
@@ -616,7 +646,7 @@ apiRouter.get('/salas/status/:id', async (req, res) => {
   }
 });
 
-apiRouter.post('/salas/unirse', async (req, res) => {
+apiRouter.post('/salas/unirse', authenticateToken, async (req, res) => {
   try {
     const { codigo, estudiante_id } = req.body;
     const result = await db.execute({ sql: 'SELECT * FROM salas WHERE codigo_unico = ? AND activa = 1', args: [codigo] });
@@ -635,7 +665,7 @@ apiRouter.post('/salas/unirse', async (req, res) => {
   }
 });
 
-apiRouter.post('/salas/borrar', async (req, res) => {
+apiRouter.post('/salas/borrar', authenticateToken, async (req, res) => {
   const { sala_id, docente_id } = req.body;
   try {
     await db.execute({
@@ -648,7 +678,7 @@ apiRouter.post('/salas/borrar', async (req, res) => {
   }
 });
 
-apiRouter.post('/salas/toggle-status', async (req, res) => {
+apiRouter.post('/salas/toggle-status', authenticateToken, async (req, res) => {
   const { sala_id, activa } = req.body;
   try {
     await db.execute({
@@ -661,7 +691,7 @@ apiRouter.post('/salas/toggle-status', async (req, res) => {
   }
 });
 
-apiRouter.post('/game/score', async (req, res) => {
+apiRouter.post('/game/score', authenticateToken, async (req, res) => {
   try {
     const { estudiante_id, nivel_id, score, aciertos, errores } = req.body;
     await db.execute({
@@ -679,16 +709,16 @@ apiRouter.post('/game/score', async (req, res) => {
   }
 });
 
-// Almacén temporal de progreso para importaciones (en memoria)
-const importStatus = {};
+// En producción, esto debería ir a Redis o una tabla de la DB. 
+// Para salir de beta, al menos lo asociamos a un tracking más limpio.
+const importJobs = new Map();
 
-// Endpoint para consultar el progreso desde el dashboard
-apiRouter.get('/docente/import-progress/:id', (req, res) => {
-  res.json(importStatus[req.params.id] || { progress: 0 });
+apiRouter.get('/docente/import-progress/:id', authenticateToken, (req, res) => {
+  res.json(importJobs.get(req.params.id) || { progress: 0 });
 });
 
 // --- IMPORTACIÓN DE NOTAS DESDE DOCUMENTO ---
-apiRouter.post('/docente/importar-notas', upload.single('archivo'), async (req, res) => {
+apiRouter.post('/docente/importar-notas', authenticateToken, upload.single('archivo'), async (req, res) => {
   // Obtenemos el ID del docente para trackear su progreso específico
   const docenteId = req.body.docente_id;
 
@@ -728,7 +758,7 @@ apiRouter.post('/docente/importar-notas', upload.single('archivo'), async (req, 
       return res.status(400).json({ error: `Faltan columnas requeridas: ${missingUpper.join(', ')}` });
     }
 
-    if (docenteId) importStatus[docenteId] = { progress: 0 };
+    if (docenteId) importJobs.set(docenteId, { progress: 0 });
 
     // Procesar cada fila e insertar/actualizar en la base de datos
     for (let i = 0; i < data.length; i++) {
@@ -746,12 +776,12 @@ apiRouter.post('/docente/importar-notas', upload.single('archivo'), async (req, 
 
       // Actualizar progreso en memoria
       if (docenteId) {
-        importStatus[docenteId].progress = Math.round(((i + 1) / data.length) * 100);
+        importJobs.set(docenteId, { progress: Math.round(((i + 1) / data.length) * 100) });
       }
     }
 
     // Limpiar el progreso después de 10 segundos de haber terminado
-    if (docenteId) setTimeout(() => delete importStatus[docenteId], 10000);
+    if (docenteId) setTimeout(() => importJobs.delete(docenteId), 10000);
 
     res.json({ status: 'success', message: `${data.length} registros procesados correctamente.` });
   } catch (e) {

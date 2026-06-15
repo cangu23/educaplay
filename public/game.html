@@ -287,7 +287,7 @@
             display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
             background: var(--card-bg); position: relative;
         }
-        .skill-key { position: absolute; bottom: -5px; right: -5px; font-size: 0.6rem; background: var(--primary-color); color: white; padding: 2px 4px; border-radius: 4px; }
+        .skill-key { position: absolute; bottom: -10px; right: -10px; font-size: 1.2rem; font-weight: 900; background: var(--primary-color); color: white; padding: 4px 8px; border-radius: 6px; border: 2px solid white; box-shadow: 0 0 15px var(--primary-color); }
         .skill-cooldown { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; }
     </style>
 </head>
@@ -346,7 +346,7 @@
             
             <div class="stat-box">
                 <div class="stat-label">DIMENSIÓN</div>
-                <div class="stat-value" id="level-display">ARCHIVO</div>
+                <div class="stat-value" id="level-display" style="text-shadow: 0 0 10px var(--primary-color);">ARCHIVO</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">Estado de Energía</div>
@@ -381,7 +381,7 @@
                 <div class="stat-value" id="code-fragments-display">0</div>
             </div>
             <div style="margin-top: auto; text-align: center; font-size: 0.6rem; opacity: 0.5;">
-                SYS_CORE_V2.0 // EDUPLAY
+                STABLE_BUILD_V1.0.4 // EDUPLAY PRODUCTION
                 <a href="index.html" onclick="localStorage.clear()" style="color: #ff0055; text-decoration: none; display: block; margin-top: 10px;">[ CERRAR SESIÓN ]</a>
             </div>
         </div>
@@ -525,7 +525,9 @@
         });
 
         function updateTimer() {
-            fetch(`/api/salas/status/${localStorage.getItem('salaId')}`)
+            fetch(`/api/salas/status/${localStorage.getItem('salaId')}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            })
                 .then(response => response.json())
                 .then(data => {
                     if (data.tiempo_restante <= 0) { alert("¡Tiempo agotado!"); window.location.href = "student_dashboard.html"; }
@@ -543,7 +545,10 @@
             if (!msg) return;
             await fetch('/api/chat/send', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
                 body: JSON.stringify({
                     sala_id: localStorage.getItem('salaId'),
                     username: localStorage.getItem('username'),
@@ -555,7 +560,9 @@
         }
 
         async function loadChat() {
-            const res = await fetch(`/api/chat/${localStorage.getItem('salaId')}`);
+            const res = await fetch(`/api/chat/${localStorage.getItem('salaId')}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
             const msgs = await res.json();
             const container = document.getElementById('chat-messages');
             container.innerHTML = msgs.map(m => `
