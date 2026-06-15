@@ -194,6 +194,7 @@ function initDomCache() {
     domCache.loadingScreen = document.getElementById("loading-screen");
     domCache.skinSelector = document.getElementById("skin-selector");
     domCache.btnContinuar = document.getElementById("btn-continuar");
+    domCache.landingSplash = document.getElementById("landing-splash");
     domCache.navUserName = document.getElementById("nav-user-name");
     // Movido al HUD superior derecho
     domCache.scoreDisplay = document.getElementById("score-display");
@@ -250,26 +251,23 @@ let proyectilesJugador = [];
 let missionItems = [];
 let otrosJugadores = [];
 let misionProgreso = 0;
-let misionObjetivoRealizado = false; // Nueva bandera para tareas específicas (hackeo, cofres)
-let cofres = []; // Ahora se pueblan dinámicamente por nivel
-
+let misionObjetivoRealizado = false;
+let cofres = []; 
+let enemigos = [];
+let items = []; 
+let collisionData = null;
 const secretos = [
     { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
     { x: 700, y: 100, activo: true }, { x: 1800, y: 1200, activo: true }
 ];
 
-let items = []; // Se reinician y pueblan en spawnEnemigos
-
-let enemigos = [];
-let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
-
-let apagonLuz = 0;
+// Variables de estado de juego (se inicializan más abajo en la sección de acción)
 let damageFlash = 0;
 let tieneLlave = false;
 let consolaActiva = false;
-let codeFragments = 0; // Nueva moneda del juego
-let hackTimer = 0; // Tiempo restante para el hackeo
-let hackTimerInterval = null; // ID del intervalo del cronómetro
+let codeFragments = 0; 
+let hackTimer = 0; 
+let hackTimerInterval = null; 
 let portalSwirlActive = false;
 let portalSwirlX = 0;
 let portalSwirlY = 0;
@@ -286,6 +284,23 @@ function startup() {
         }
 
         if (domCache.loadingScreen) domCache.loadingScreen.classList.add("hidden");
+        if (domCache.landingSplash) domCache.landingSplash.classList.add("splash-hidden");
+
+        // --- ACCESO RÁPIDO AL PANEL DOCENTE ---
+        // Si el usuario es profesor, inyectamos un botón flotante para volver al panel
+        if (localStorage.getItem('rol') === 'profesor') {
+            const adminBtn = document.createElement("button");
+            adminBtn.innerHTML = "⚙️ PANEL DOCENTE";
+            adminBtn.style.position = "fixed";
+            adminBtn.style.top = "20px";
+            adminBtn.style.left = "50%";
+            adminBtn.style.transform = "translateX(-50%)";
+            adminBtn.style.zIndex = "10001";
+            adminBtn.className = "btn btn-primary"; // Aprovecha tus estilos existentes
+            adminBtn.style.boxShadow = "0 0 20px var(--primary-color)";
+            adminBtn.onclick = () => window.location.href = 'teacher_dashboard.html';
+            document.body.appendChild(adminBtn);
+        }
 
         // --- MEJORA: AUTOGUARDADO / AUTO-RECUPERACIÓN ---
         const save = localStorage.getItem("cyberExplorer_SaveData");
@@ -406,18 +421,6 @@ let decoraciones = [
     { x: 1800, y: 1200, tipo: "banco", dimension: "Pueblo" }, { x: 2200, y: 500, tipo: "casa", dimension: "Pueblo" }
 ];
 
-let items = []; // Ahora se pueblan dinámicamente por nivel en spawnEnemigos
-
-let cofres = []; // Ahora se pueblan dinámicamente por nivel
-
-const secretos = [
-    { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
-    { x: 700, y: 100, activo: true }, { x: 1800, y: 1200, activo: true }
-];
-
-let enemigos = [];
-let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
-
 function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
     console.log("Iniciando carga de dimensión:", nombre);
     dimensionActual = nombre; // CRÍTICO: Sincronizar la dimensión actual para que los objetos se dibujen
@@ -445,43 +448,43 @@ function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
             setTimeout(() => toast.remove(), 12000); // 12 segundos para leer
         }
 
-        if (loadingScreen) loadingScreen.classList.remove("hidden");
-
         juegoPausado = true;
         npcs = []; 
         
         setTimeout(() => {
-            // OCULTAR SIEMPRE LA PANTALLA DE CARGA
-            if (loadingScreen) loadingScreen.classList.add("hidden");
+            try {
+                // OCULTAR PANTALLA DE CARGA TRAS PROCESAMIENTO
+                if (loadingScreen) loadingScreen.classList.add("hidden");
 
-            if (domCache.skinSelector && estadoJuego === "SELECCION") domCache.skinSelector.classList.remove("hidden");
-            
-            // juegoPausado se mantiene true para que la cuenta regresiva funcione
-            
-            // Población procedural del nivel
-            spawnEnemigos(15 + (misionActivaIndex * 8));
-            generarMapaDenso();
-            
-            if (misiones[misionActivaIndex]) {
-                spawnNPC(misiones[misionActivaIndex].npc);
-            }
+                if (domCache.skinSelector && estadoJuego === "SELECCION") domCache.skinSelector.classList.remove("hidden");
+                
+                // Población procedural del nivel
+                spawnEnemigos(15 + (misionActivaIndex * 8));
+                generarMapaDenso();
+                
+                if (misiones[misionActivaIndex]) {
+                    spawnNPC(misiones[misionActivaIndex].npc);
+                }
 
-            // Colocar llave y cofre según el nivel
-            if (dimensionActual === "Archivo") {
-                items.push({ x: 400, y: 1500, tipo: "key_card", activo: true });
-            }
+                // Colocar llave y cofre según el nivel
+                if (dimensionActual === "Archivo") {
+                    items.push({ x: 400, y: 1500, tipo: "key_card", activo: true });
+                }
 
-            if (!loopIniciado) {
-                loopIniciado = true;
-                dibujar();
-            }
+                if (!loopIniciado) {
+                    loopIniciado = true;
+                    dibujar();
+                }
 
-            // Autoguardar inmediatamente al entrar al nivel
-            guardarProgreso();
+                // Autoguardar inmediatamente al entrar al nivel
+                guardarProgreso();
 
-            // Call the callback when loading is complete
-            if (onReadyCallback) {
-                onReadyCallback();
+                if (onReadyCallback) {
+                    onReadyCallback();
+                }
+            } catch (innerError) {
+                console.error("Error asíncrono en carga de nivel:", innerError);
+                if (loadingScreen) loadingScreen.classList.add("hidden");
             }
         }, 100);
     } catch (err) {
@@ -863,7 +866,9 @@ window.addEventListener('load', () => {
 });
 
 const teclas = {};
-window.onkeydown = (e) => { 
+window.addEventListener('keydown', (e) => {
+    // Prevenir que la tecla se procese varias veces si se mantiene presionada
+    if (teclas[e.key]) return;
     teclas[e.key] = true; 
     
     // Toggle pausa del juego con 'P' o 'Esc'
@@ -873,8 +878,11 @@ window.onkeydown = (e) => {
             juegoPausado = !juegoPausado;
         }
     }
-};
-window.onkeyup = (e) => { teclas[e.key] = false; };
+});
+
+window.addEventListener('keyup', (e) => {
+    teclas[e.key] = false;
+});
 
 // Evitar que el personaje siga caminando si la ventana pierde el foco
 window.onblur = () => { 

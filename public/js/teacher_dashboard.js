@@ -1,9 +1,10 @@
 const docenteId = localStorage.getItem('userId');
 const token = localStorage.getItem('token');
+const userRole = localStorage.getItem('rol');
 
 async function initDashboard() {
-    if (!docenteId || !token) return window.location.href = 'index.html';
-    
+    if (!docenteId || !token || userRole !== 'profesor') return window.location.href = 'index.html';
+
     await loadStats();
     await loadRooms();
     await loadChart();
@@ -55,6 +56,34 @@ async function deleteSala(id) {
     if (res.ok) {
         loadRooms();
         loadStats();
+    }
+}
+
+async function crearNuevaSala() {
+    const duracion = prompt("Duración de la sala (minutos):", "60");
+    const capacidad = prompt("Capacidad máxima de alumnos:", "30");
+    
+    if (!duracion || !capacidad) return;
+
+    const res = await fetch('/api/salas/crear', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            docente_id: docenteId,
+            duracion: parseInt(duracion),
+            capacidad: parseInt(capacidad),
+            game_url: 'local'
+        })
+    });
+
+    if (res.ok) {
+        alert("¡Sala creada con éxito!");
+        loadRooms(); // Recarga la lista para ver la nueva sala
+    } else {
+        alert("Error al crear la sala");
     }
 }
 
