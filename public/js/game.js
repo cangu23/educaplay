@@ -226,6 +226,9 @@ function initDomCache() {
     domCache.credentialsBox = document.getElementById("credentials-box");
     domCache.credentialsList = document.getElementById("credentials-list");
     domCache.credentialsTitle = document.getElementById("credentials-title");
+    domCache.hudAccessCode = document.getElementById("hud-access-code");
+    domCache.hudCredentialsList = document.getElementById("hud-credentials-list");
+    domCache.hudAccessCodeTitle = document.getElementById("hud-access-code-title");
 }
 
 // --- SISTEMA DE TEXTOS FLOTANTES (Puntos, etc.) ---
@@ -570,13 +573,21 @@ function mostrarAvisoDisparo() {
 
 function spawnNPC(datos) {
     if (!datos || typeof misiones === 'undefined' || !misiones[misionActivaIndex]) return;
+    
+    let mensajeFinal = datos.mensaje;
+
+    // Aseguramos que si es la Misión 1 (ID: 1), el bot (María) mencione el código de acceso correcto.
+    if (misiones[misionActivaIndex].id === 1) {
+        mensajeFinal = "Hola, soy María. El sistema ha detectado un ataque de Fuerza Bruta. Para restaurar el acceso, debes recolectar los 4 fragmentos del código secreto: 7, u, r, 6. ¡Búscalos por el mapa!";
+    }
+
     npcs.push({
             x: misiones[misionActivaIndex].x - 150, // Spawn cerca del objetivo
             y: misiones[misionActivaIndex].y + 50,
         w: 30, // Ancho del NPC para colisiones
         h: 45, // Alto del NPC para colisiones (basado en el dibujo)
         nombre: datos.nombre,
-            mensaje: datos.mensaje, // El mensaje que contiene la pista de la misión
+            mensaje: mensajeFinal, // El mensaje que contiene la pista de la misión
         color: "#fff",
         charIndex: 0,
         style: Math.floor(Math.random() * 4), // 0: Calvo, 1: Pinchos, 2: Gorra, 3: Melena
@@ -2733,6 +2744,7 @@ function actualizarHUD() {
 
             if (isFragmentMission && domCache.credentialsBox && domCache.credentialsList) {
                 domCache.credentialsBox.classList.remove("hidden");
+                if (domCache.hudAccessCode) domCache.hudAccessCode.classList.remove("hidden");
                 let targets = [];
                 let accentColor = "#facc15"; // Amarillo por defecto
                 
@@ -2740,17 +2752,20 @@ function actualizarHUD() {
                     targets = ["7", "u", "r", "6"];
                     accentColor = "#facc15";
                     if (domCache.credentialsTitle) domCache.credentialsTitle.innerText = "CÓDIGO DE ACCESO";
+                    if (domCache.hudAccessCodeTitle) domCache.hudAccessCodeTitle.innerText = "CÓDIGO DE ACCESO";
                 } else if (mis.tipo === "combate_consola") {
                     targets = ["C1", "C2", "C3", "C4"];
                     accentColor = "#38bdf8";
                     if (domCache.credentialsTitle) domCache.credentialsTitle.innerText = "CERTIFICADOS SSL";
+                    if (domCache.hudAccessCodeTitle) domCache.hudAccessCodeTitle.innerText = "CERTIFICADOS SSL";
                 } else if (mis.tipo === "firewall") {
                     targets = ["T1", "T2", "T3", "T4"];
                     accentColor = "#4ade80";
                     if (domCache.credentialsTitle) domCache.credentialsTitle.innerText = "TOKENS DE RED";
+                    if (domCache.hudAccessCodeTitle) domCache.hudAccessCodeTitle.innerText = "TOKENS DE RED";
                 }
 
-                domCache.credentialsList.innerHTML = targets.map((t, i) => {
+                const buildItemsHtml = (size, fontSize, shadowSize) => targets.map((t, i) => {
                     let found = false;
                     if (mis.tipo === "simbolos") {
                         found = jugador.missionInventory.some(item => item.tipo === "simbolo" && item.char === t);
@@ -2760,13 +2775,19 @@ function actualizarHUD() {
                     }
 
                     const color = found ? accentColor : "#555";
-                    const shadow = found ? `0 0 15px ${accentColor}` : "none";
+                    const shadow = found ? `0 0 ${shadowSize} ${accentColor}` : "none";
                     const border = found ? `2px solid ${accentColor}` : "2px solid #333";
                     
-                    return `<div style="width: 50px; height: 50px; border: ${border}; background: #050505; color: ${color}; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.3rem; box-shadow: ${shadow}; transition: all 0.4s ease;">${found ? t : '?'}</div>`;
+                    return `<div style="width: ${size}; height: ${size}; border: ${border}; background: #050505; color: ${color}; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; font-size: ${fontSize}; box-shadow: ${shadow}; transition: all 0.4s ease;">${found ? t : '?'}</div>`;
                 }).join("");
+
+                domCache.credentialsList.innerHTML = buildItemsHtml("50px", "1.3rem", "15px");
+                if (domCache.hudCredentialsList) {
+                    domCache.hudCredentialsList.innerHTML = buildItemsHtml("30px", "0.9rem", "10px");
+                }
             } else if (domCache.credentialsBox) {
                 domCache.credentialsBox.classList.add("hidden");
+                if (domCache.hudAccessCode) domCache.hudAccessCode.classList.add("hidden");
             }
 
         // Actualización optimizada del Sidebar

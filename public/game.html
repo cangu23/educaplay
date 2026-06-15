@@ -387,10 +387,15 @@
         </div>
 
         <!-- HUD Top-Left: Integridad del Agente -->
-        <div id="hud-integrity-display" class="ingame-hud" style="top: 20px; left: 340px;">
+        <div id="hud-integrity-display" class="ingame-hud" style="top: 20px; left: 340px; display: flex; gap: 40px;">
             <div class="hud-vitals">
                 <div class="stat-label">INTEGRIDAD DEL AGENTE</div>
                 <div id="lives-display" style="display: flex; gap: 5px; margin-top: 5px;"></div>
+            </div>
+            <!-- HUD de Credenciales Recolectadas (Letras/Tokens del suelo) -->
+            <div id="hud-access-code" class="hud-vitals hidden">
+                <div class="stat-label" id="hud-access-code-title">CÓDIGO DE ACCESO</div>
+                <div id="hud-credentials-list" style="display: flex; gap: 8px; margin-top: 5px;"></div>
             </div>
         </div>
 
