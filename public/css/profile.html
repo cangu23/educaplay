@@ -7,9 +7,15 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Mi Perfil</h1>
-            <a href="teacher_dashboard.html" id="back-link" class="btn btn-secondary">Volver</a>
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 15px; cursor: pointer;" onclick="location.href='index.html'">
+                <img src="assets/logo.png" alt="Eduplay" style="height: 30px;">
+                <h1 style="margin: 0; font-size: 1.5rem;">Mi Perfil</h1>
+            </div>
+            <nav style="display: flex; gap: 10px;">
+                <a href="index.html" class="btn btn-secondary">Inicio</a>
+                <a href="teacher_dashboard.html" id="back-link" class="btn btn-secondary">Volver</a>
+            </nav>
         </header>
 
         <div class="widget">

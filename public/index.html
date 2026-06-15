@@ -7,8 +7,14 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body style="display: flex; flex-direction: column; min-height: 100vh;">
+    <!-- Pantalla de Bienvenida (Splash Screen) -->
+    <div id="landing-splash">
+        <img src="assets/logo.png" alt="Eduplay Logo" class="splash-logo">
+        <div class="splash-loader"></div>
+    </div>
+
     <header>
-        <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 15px; cursor: pointer;" onclick="location.href='index.html'">
             <img src="assets/logo.png" alt="Eduplay" class="logo-img">
             <h2 style="margin: 0; font-size: 1.2rem; color: var(--primary-dark);">Eduplay</h2>
         </div>
@@ -182,6 +188,14 @@
     </footer>
 
             <script>
+                // Control de la pantalla de bienvenida
+                window.addEventListener('load', () => {
+                    setTimeout(() => {
+                        const splash = document.getElementById('landing-splash');
+                        if (splash) splash.classList.add('splash-hidden');
+                    }, 2500); // Se muestra por 2.5 segundos
+                });
+
                 const loginForm = document.getElementById('loginForm');
                 const loginBtn = document.getElementById('loginBtn');
                 const msgDiv = document.getElementById('msg');

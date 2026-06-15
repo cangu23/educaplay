@@ -1102,4 +1102,59 @@ canvas {
     box-shadow: 0 0 15px var(--primary-color);
     transform: scale(1.15) translateY(-2px);
 }
+
+/* --- PANTALLA DE BIENVENIDA (SPLASH SCREEN) --- */
+#landing-splash {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-dark);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.8s ease, visibility 0.8s;
+}
+
+#landing-splash.splash-hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.splash-logo {
+    height: 120px;
+    margin-bottom: 20px;
+    animation: splash-pulse 2s ease-in-out infinite;
+}
+
+.splash-loader {
+    width: 150px;
+    height: 2px;
+    background: rgba(250, 204, 21, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.splash-loader::after {
+    content: '';
+    position: absolute;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--primary-color);
+    animation: loader-slide 2s infinite;
+}
+
+@keyframes splash-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 20px var(--yellow-glow)); }
+}
+
+@keyframes loader-slide {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
 }
