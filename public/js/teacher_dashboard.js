@@ -108,7 +108,9 @@ async function loadStudentsTable() {
         const accuracy = s.total_aciertos + s.total_errores > 0 
             ? Math.round((s.total_aciertos / (s.total_aciertos + s.total_errores)) * 100) 
             : 0;
-        const progressionPercent = Math.round((s.max_nivel_id / misiones.length) * 100); // Dynamic total levels
+        
+        const totalLevels = (typeof misiones !== 'undefined') ? misiones.length : 5;
+        const progressionPercent = Math.round((s.max_nivel_id / totalLevels) * 100);
             
         let badgeClass = 'badge-success';
         let statusText = 'ESTABLE';

@@ -133,6 +133,21 @@ apiRouter.use((req, res, next) => {
   next();
 });
 
+// --- GESTIÓN DE SALAS ---
+apiRouter.post('/salas/crear', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+  try {
+    const { docente_id, duracion, capacidad, game_url } = req.body;
+    const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await db.execute({
+      sql: 'INSERT INTO salas (codigo_unico, docente_id, duracion_minutos, capacidad_max, game_url) VALUES (?, ?, ?, ?, ?)',
+      args: [codigo, docente_id, duracion, capacidad, game_url]
+    });
+    res.json({ status: 'success', codigo });
+  } catch (e) {
+    res.status(500).json({ error: 'No se pudo crear la sala: ' + e.message });
+  }
+});
+
 // --- RUTAS PROTEGIDAS (Ejemplos) ---
 // Podrías aplicar el middleware a rutas específicas o a todo el router excepto auth
 apiRouter.get('/docente/resumen-global/:id', authenticateToken, authorizeRole('profesor'), async (req, res) => {
@@ -640,6 +655,31 @@ apiRouter.get('/docente/alumnos-riesgo/:id', authenticateToken, async (req, res)
   } catch (e) {
     res.status(500).json({ error: 'Error al obtener alumnos en riesgo' });
   }
+});
+
+// --- DETALLE DE PROGRESO INDIVIDUAL (PARA EL MODAL DEL PROFESOR) ---
+apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    try {
+        // SEGURIDAD: Verificar que el estudiante pertenece a alguna sala del docente que consulta
+        const vinculacion = await db.execute({
+            sql: `SELECT 1 FROM participantes_sala ps 
+                  JOIN salas s ON ps.sala_id = s.id 
+                  WHERE ps.estudiante_id = ? AND s.docente_id = ? LIMIT 1`,
+            args: [req.params.idEstudiante, req.user.id]
+        });
+
+        if (vinculacion.rows.length === 0) {
+            return res.status(403).json({ error: "No tienes permiso para auditar a este estudiante." });
+        }
+
+        const progreso = await db.execute({
+            sql: `SELECT nivel_id, score, aciertos, errores, fecha_actualizacion FROM progreso_estudiante WHERE estudiante_id = ? ORDER BY nivel_id ASC`,
+            args: [req.params.idEstudiante]
+        });
+        res.json(progreso.rows);
+    } catch (e) {
+        res.status(500).json({ error: 'Error al obtener detalle individual: ' + e.message });
+    }
 });
 
 // --- NUEVO: ANÁLISIS DETALLADO POR NIVEL ---
