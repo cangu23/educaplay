@@ -16,7 +16,9 @@
             <a href="index.html" class="btn btn-secondary" style="display: flex; align-items: center; gap: 5px;">
                 <span class="material-icons" style="font-size: 18px;">home</span> Inicio
             </a>
-            <a href="#login-anchor" class="btn btn-primary">Iniciar Sesión</a>
+            <div id="nav-auth-buttons" style="display: flex; gap: 10px;">
+                <a href="#login-anchor" class="btn btn-primary">Iniciar Sesión</a>
+            </div>
         </nav>
     </header>
 
@@ -28,7 +30,7 @@
                 Plataforma de entrenamiento interactivo en ciberseguridad. Diseñada para facilitar el aprendizaje práctico de protocolos de defensa, gestión de redes y respuesta ante incidentes en un entorno simulado controlado.
             </p>
             <p style="color: var(--accent-color); font-weight: 600; margin-bottom: 40px;">SIMULACIÓN TÁCTICA // APRENDIZAJE BASADO EN RETOS</p>
-            <div style="display: flex; justify-content: center; gap: 15px;">
+            <div id="hero-actions" style="display: flex; justify-content: center; gap: 15px;">
                 <a href="#login-anchor" class="btn btn-primary">Acceder al Sistema</a>
                 <a href="register.html" class="btn btn-secondary">Crear Identidad</a>
             </div>
@@ -109,7 +111,7 @@
         </section>
 
         <!-- Interaction Grid -->
-        <div class="dashboard-grid" id="login-anchor">
+        <div class="dashboard-grid" id="auth-section">
             <!-- Quick Join Widget -->
             <div class="widget">
                 <h2>Acceso Rápido</h2>
@@ -122,7 +124,7 @@
             </div>
 
             <!-- Login Card -->
-            <div class="login-card" style="max-width: none;">
+            <div class="login-card" id="login-card" style="max-width: none;">
                 <h2>Autenticación</h2>
                 <div id="msg" style="font-size: 0.8rem; margin-bottom: 15px; min-height: 20px;"></div>
                 <form id="loginForm">
@@ -292,5 +294,42 @@
 
                 loadRanking();
             </script>
+
+    <script>
+        // Lógica de detección de sesión
+        function checkSession() {
+            const token = localStorage.getItem('token');
+            const username = localStorage.getItem('username');
+            const userId = localStorage.getItem('userId');
+
+            if (token && username) {
+                // Cambiar Header
+                document.getElementById('nav-auth-buttons').innerHTML = `
+                    <a href="profile.html" class="btn btn-secondary">Mi Perfil</a>
+                    <button onclick="localStorage.clear(); location.reload();" class="btn btn-danger">Salir</button>
+                `;
+
+                // Cambiar Hero Actions
+                document.getElementById('hero-actions').innerHTML = `
+                    <a href="student_dashboard.html" class="btn btn-primary">Ir a mis Misiones</a>
+                    <a href="profile.html" class="btn btn-secondary">Ver mi Rango</a>
+                `;
+
+                // Cambiar Sección de Login por Bienvenida
+                const authSection = document.getElementById('login-card');
+                authSection.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <span class="material-icons" style="font-size: 4rem; color: var(--primary-color);">account_circle</span>
+                        <h2 style="margin-top: 10px;">¡Bienvenido, ${username}!</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 20px;">Tu sesión está activa en el sistema.</p>
+                        <a href="student_dashboard.html" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">Continuar Operaciones</a>
+                        <button onclick="localStorage.clear(); location.reload();" class="btn btn-secondary" style="width: 100%;">Cerrar Sesión Actual</button>
+                    </div>
+                `;
+            }
+        }
+        
+        window.addEventListener('load', checkSession);
+    </script>
 </body>
 </html>

@@ -421,6 +421,25 @@ apiRouter.post('/user/update', authenticateToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+apiRouter.post('/user/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+  try {
+    const result = await db.execute({ sql: 'SELECT password FROM usuarios WHERE id = ?', args: [userId] });
+    const user = result.rows[0];
+    
+    if (user && await bcrypt.compare(currentPassword, user.password)) {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.execute({ sql: 'UPDATE usuarios SET password = ? WHERE id = ?', args: [hashedPassword, userId] });
+      res.json({ status: 'success', message: 'Contraseña actualizada con éxito.' });
+    } else {
+      res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Error al cambiar contraseña: ' + e.message });
+  }
+});
+
 // --- BÚSQUEDA DE USUARIOS ---
 apiRouter.get('/users/search', authenticateToken, async (req, res) => {
   const { q, viewerId } = req.query;

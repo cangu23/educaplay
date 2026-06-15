@@ -275,9 +275,19 @@ function startup() {
 
         if (domCache.loadingScreen) domCache.loadingScreen.classList.add("hidden");
 
-        // IMPORTANTE: Mostrar el selector de personajes si estamos en la fase inicial
-        if (estadoJuego === "SELECCION" && domCache.skinSelector) {
-            domCache.skinSelector.classList.remove("hidden");
+        // --- MEJORA: AUTOGUARDADO / AUTO-RECUPERACIÓN ---
+        const save = localStorage.getItem("cyberExplorer_SaveData");
+        if (save && estadoJuego === "SELECCION") {
+            console.log("Recuperando sesión de agente interrumpida...");
+            // Si hay un save, intentamos continuar automáticamente
+            setTimeout(() => {
+                continuarPartida();
+            }, 500); // Pequeño delay para asegurar que el DOM esté listo
+        } else {
+            // Si no hay save, mostramos el selector normal
+            if (estadoJuego === "SELECCION" && domCache.skinSelector) {
+                domCache.skinSelector.classList.remove("hidden");
+            }
         }
     } catch (e) {
         console.error("Error durante el arranque del sistema:", e);
@@ -402,18 +412,21 @@ const secretos = [
 let enemigos = [];
 let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
 
-function cargarNivel(nombre, onReadyCallback) {
+function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
     console.log("Iniciando carga de dimensión:", nombre);
     
     const loadingScreen = domCache.loadingScreen;
     
     try {
-        // Reset de estado
-        tieneLlave = false;
-        misionProgreso = 0;
-        nivelCompletado = false; // Resetear estado de victoria
-        jugador.missionInventory = []; // Limpiar inventario de misión al cambiar de nivel
-        misionObjetivoRealizado = false;
+        // Reset de estado solo si no es una continuación de emergencia
+        if (!esContinuacion) {
+            tieneLlave = false;
+            misionProgreso = 0;
+            jugador.missionInventory = [];
+            misionObjetivoRealizado = false;
+        }
+        
+        nivelCompletado = false; 
 
         // Mostrar Briefing de Misión al cargar
         if (typeof misiones !== 'undefined' && misiones[misionActivaIndex]) {
@@ -455,6 +468,9 @@ function cargarNivel(nombre, onReadyCallback) {
                 loopIniciado = true;
                 dibujar();
             }
+
+            // Autoguardar inmediatamente al entrar al nivel
+            guardarProgreso();
 
             // Call the callback when loading is complete
             if (onReadyCallback) {
@@ -671,8 +687,11 @@ function spawnEnemigos(cantidad, append = false) {
         enemigos = [];
         proyectilesEnemigos = [];
         missionItems = [];
-        jugador.missionInventory = [];
-        misionProgreso = 0;
+
+        // Evitar limpiar el inventario si venimos de una recuperación de datos
+        if (jugador.missionInventory.length === 0) {
+            misionProgreso = 0;
+        }
 
         // Generar items de misión según el nivel actual
         if (misionActual) {
@@ -701,6 +720,15 @@ function spawnEnemigos(cantidad, append = false) {
                     });
                 }
             }
+        }
+
+        // --- FILTRAR ITEMS YA RECOGIDOS ---
+        if (jugador.missionInventory.length > 0) {
+            missionItems = missionItems.filter(mi => {
+                return !jugador.missionInventory.some(inv => 
+                    inv.tipo === mi.tipo && inv.char === mi.char
+                );
+            });
         }
 
         items.forEach(it => it.activo = true);
@@ -835,10 +863,17 @@ window.guardarProgreso = function() {
     const datos = {
         score,
         misionActivaIndex,
+        misionProgreso,
+        missionInventory: jugador.missionInventory,
+        tieneLlave,
+        codeFragments,
         color: jugador.color,
         dimension: dimensionActual,
         posX: jugador.x,
-        posY: jugador.y
+        posY: jugador.y,
+        vidas: jugador.vidas,
+        bateria: jugador.bateria,
+        stamina: jugador.stamina
     };
     localStorage.setItem("cyberExplorer_SaveData", JSON.stringify(datos));
 };
@@ -849,21 +884,27 @@ window.continuarPartida = function() {
         const datos = JSON.parse(save);
         score = datos.score;
         misionActivaIndex = datos.misionActivaIndex;
+        misionProgreso = datos.misionProgreso || 0;
+        jugador.missionInventory = datos.missionInventory || [];
+        tieneLlave = datos.tieneLlave || false;
+        codeFragments = datos.codeFragments || 0;
         dimensionActual = datos.dimension;
         jugador.x = datos.posX;
         jugador.y = datos.posY;
+        jugador.vidas = datos.vidas || jugador.vidasMax;
+        jugador.bateria = datos.bateria || jugador.bateriaMax;
+        jugador.stamina = datos.stamina || jugador.staminaMax;
         
         if (domCache.scoreDisplay) domCache.scoreDisplay.innerText = score;
         if (domCache.levelDisplay) domCache.levelDisplay.innerText = dimensionActual;
-        if (domCache.fragmentsCount) domCache.fragmentsCount.innerText = `${fragmentosEncontrados} / ${secretos.length}`;
         
-        seleccionarSkin(null, datos.color);
+        seleccionarSkin(null, datos.color, true);
     } else if (domCache.skinSelector) { // Si no hay partida guardada, mostrar selector
         domCache.skinSelector.classList.remove("hidden");
     }
 };
 
-window.seleccionarSkin = function(buttonElement, color) {
+window.seleccionarSkin = function(buttonElement, color, esContinuacion = false) {
     // Si buttonElement no se proporciona (ej. al continuar una partida),
     // buscamos el botón correspondiente al color.
     if (!buttonElement) {
@@ -893,7 +934,7 @@ window.seleccionarSkin = function(buttonElement, color) {
     guardarProgreso();
     
     // Cargar el nivel y luego manejar el inicio del juego (manual o cuenta regresiva)
-    cargarNivel(dimensionActual, () => { // Se pasa un callback para ejecutar después de que el nivel cargue
+    cargarNivel(dimensionActual, () => { 
         buscarSitioSeguro();
         
         // Mostrar manual automáticamente la primera vez que inicia el juego
@@ -919,7 +960,7 @@ window.seleccionarSkin = function(buttonElement, color) {
 
         // Iniciar actualización del HUD de forma eficiente (fuera del loop de 60fps)
         if (!window.hudUpdateInterval) window.hudUpdateInterval = setInterval(actualizarHUD, 100);
-    }); // Fin del callback de cargarNivel
+    }, esContinuacion); // Fin del callback de cargarNivel
 };
 
 // Función de detección de colisión
@@ -2821,10 +2862,18 @@ function syncPosition() {
  * Separado del bucle de renderizado para mejorar el rendimiento al reducir el layout thrashing.
  */
 let lastHUDMissionState = "";
+let lastAutoSaveTime = 0;
+
 function actualizarHUD() {
     if (estadoJuego !== "JUGANDO") return;
 
     if (domCache.scoreDisplay) domCache.scoreDisplay.innerText = score;
+
+    // --- AUTOGUARDADO PERIÓDICO (Cada 5 segundos) ---
+    if (Date.now() - lastAutoSaveTime > 5000 && !juegoPausado) {
+        guardarProgreso();
+        lastAutoSaveTime = Date.now();
+    }
 
     // Rastreador de misiones detallado en el Sidebar
     if (domCache.missionTracker && misiones[misionActivaIndex]) {

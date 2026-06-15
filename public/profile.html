@@ -61,6 +61,23 @@
                 <div id="save-msg" style="margin-bottom: 15px; font-size: 0.9rem; text-align: center;"></div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Sincronizar Datos</button>
             </form>
+
+            <!-- Nueva Sección de Seguridad -->
+            <div style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 25px;">
+                <h3 style="font-size: 1rem; color: var(--danger-color); margin-bottom: 15px;">⚙️ SEGURIDAD DE LA CUENTA</h3>
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Contraseña Actual</label>
+                        <input type="password" id="currentPassword" placeholder="••••••••" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nueva Contraseña</label>
+                        <input type="password" id="newPassword" placeholder="Mínimo 8 caracteres" required>
+                    </div>
+                    <div id="pass-msg" style="margin-bottom: 15px; font-size: 0.9rem; text-align: center;"></div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; border-color: var(--danger-color); color: var(--danger-color);">Actualizar Contraseña</button>
+                </form>
+            </div>
         </div>
     </main>
 
@@ -160,6 +177,37 @@
             
             if (res.ok) { msg.style.color = "var(--success-color)"; msg.innerText = "¡Base de datos actualizada!"; }
             else { msg.style.color = "var(--danger-color)"; msg.innerText = "Error en la conexión."; }
+            btn.disabled = false;
+        };
+
+        // Nueva Lógica para cambiar contraseña
+        document.getElementById('passwordForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('pass-msg');
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+
+            const res = await fetch('/api/user/change-password', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    currentPassword: document.getElementById('currentPassword').value,
+                    newPassword: document.getElementById('newPassword').value
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                msg.style.color = "var(--success-color)";
+                msg.innerText = "¡Contraseña actualizada!";
+                e.target.reset();
+            } else {
+                msg.style.color = "var(--danger-color)";
+                msg.innerText = data.error || "Error al actualizar.";
+            }
             btn.disabled = false;
         };
 
