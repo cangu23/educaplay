@@ -7,6 +7,17 @@ const WORLD_HEIGHT = 2000;
 const defaultCanvasWidth = window.innerWidth;
 const defaultCanvasHeight = window.innerHeight;
 
+// --- FUNCIÓN GLOBAL DE CERRAR SESIÓN ---
+window.logout = function() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('rol');
+    localStorage.removeItem('cyberExplorer_SaveData'); // Limpiar también los datos de guardado del juego
+    window.location.href = 'index.html'; // Redirigir a la página de inicio de sesión
+};
+
+
 // --- POOLS DE COMANDOS PARA ALEATORIEDAD ---
 const comandoPools = {
     sql: ["sql-fix --sanitize", "db-patch --input", "query-filter --clean", "stmt-prepare --id", "mysql_secure_installation"],
@@ -286,20 +297,25 @@ function startup() {
         if (domCache.loadingScreen) domCache.loadingScreen.classList.add("hidden");
         if (domCache.landingSplash) domCache.landingSplash.classList.add("splash-hidden");
 
-        // --- ACCESO RÁPIDO AL PANEL DOCENTE ---
-        // Si el usuario es profesor, inyectamos un botón flotante para volver al panel
-        if (localStorage.getItem('rol') === 'profesor') {
-            const adminBtn = document.createElement("button");
-            adminBtn.innerHTML = "⚙️ PANEL DOCENTE";
-            adminBtn.style.position = "fixed";
-            adminBtn.style.top = "20px";
-            adminBtn.style.left = "50%";
-            adminBtn.style.transform = "translateX(-50%)";
-            adminBtn.style.zIndex = "10001";
-            adminBtn.className = "btn btn-primary"; // Aprovecha tus estilos existentes
-            adminBtn.style.boxShadow = "0 0 20px var(--primary-color)";
-            adminBtn.onclick = () => window.location.href = 'teacher_dashboard.html';
-            document.body.appendChild(adminBtn);
+        // --- NAVEGACIÓN SEGÚN ROL ---
+        const userRole = (localStorage.getItem('rol') || '').toLowerCase();
+        if (userRole === 'profesor') {
+            renderTeacherButton();
+        } else if (userRole === 'estudiante') {
+            renderStudentButton();
+        }
+
+        // --- BOTÓN DE CERRAR SESIÓN (PARA AMBOS ROLES) ---
+        if (localStorage.getItem('token')) { // Solo mostrar si hay una sesión activa
+            const logoutBtn = document.createElement("button");
+            logoutBtn.innerHTML = "🚪 CERRAR SESIÓN";
+            logoutBtn.style.position = "fixed";
+            logoutBtn.style.bottom = "20px";
+            logoutBtn.style.right = "20px";
+            logoutBtn.style.zIndex = "10001";
+            logoutBtn.className = "btn btn-secondary";
+            logoutBtn.onclick = () => window.logout();
+            document.body.appendChild(logoutBtn);
         }
 
         // --- MEJORA: AUTOGUARDADO / AUTO-RECUPERACIÓN ---
@@ -319,6 +335,30 @@ function startup() {
     } catch (e) {
         console.error("Error durante el arranque del sistema:", e);
     }
+}
+
+/**
+ * Renderiza un botón de acceso al panel de profesor (solo visible para docentes)
+ */
+function renderTeacherButton() {
+    const adminBtn = document.createElement("button");
+    adminBtn.innerHTML = "⚙️ PANEL DOCENTE";
+    adminBtn.className = "btn btn-primary floating-dashboard-btn";
+    adminBtn.style.left = "50%";
+    adminBtn.onclick = () => window.location.href = 'teacher_dashboard.html';
+    document.body.appendChild(adminBtn);
+}
+
+/**
+ * Renderiza un botón de acceso al progreso del estudiante
+ */
+function renderStudentButton() {
+    const studentBtn = document.createElement("button");
+    studentBtn.innerHTML = "📊 MI PROGRESO";
+    studentBtn.className = "btn btn-secondary floating-dashboard-btn";
+    studentBtn.style.left = "40%"; 
+    studentBtn.onclick = () => window.location.href = 'student_dashboard.html';
+    document.body.appendChild(studentBtn);
 }
 
 // Asegurar inicio correcto

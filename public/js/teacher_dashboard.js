@@ -1,13 +1,39 @@
-async function initDashboard() {
-    const docenteId = localStorage.getItem('userId');
-    const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('rol');
+// Variables globales para el contexto del dashboard
+const docenteId = localStorage.getItem('userId');
+const token = localStorage.getItem('token');
+const userRole = localStorage.getItem('rol');
 
+/**
+ * Función global para cerrar sesión
+ */
+window.logout = function() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('rol');
+    localStorage.removeItem('cyberExplorer_SaveData');
+    window.location.href = 'index.html';
+};
+
+async function initDashboard() {
     // Validación estricta pero informativa
     if (!docenteId || !token || String(userRole).toLowerCase() !== 'profesor') {
         console.error("Acceso denegado: Credenciales insuficientes o rol incorrecto.", { docenteId, userRole });
         window.location.href = 'index.html';
         return;
+    }
+
+    // --- BOTÓN DE CERRAR SESIÓN ---
+    if (token) { // Solo mostrar si hay una sesión activa
+        const logoutBtn = document.createElement("button");
+        logoutBtn.innerHTML = "🚪 CERRAR SESIÓN";
+        logoutBtn.style.position = "fixed";
+        logoutBtn.style.top = "20px";
+        logoutBtn.style.right = "20px";
+        logoutBtn.style.zIndex = "10001";
+        logoutBtn.className = "btn btn-secondary";
+        logoutBtn.onclick = () => window.logout(); // Llama a la función global de logout
+        document.body.appendChild(logoutBtn);
     }
 
     await loadStats();
