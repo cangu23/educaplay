@@ -603,62 +603,6 @@ apiRouter.get('/game/positions/:salaId', authenticateToken, async (req, res) => 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-apiRouter.post('/salas/crear', authenticateToken, async (req, res) => {
-  try {
-    const { docente_id, duracion, capacidad, game_url } = req.body;
-    const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
-    await db.execute({
-      sql: 'INSERT INTO salas (codigo_unico, docente_id, duracion_minutos, capacidad_max, game_url) VALUES (?, ?, ?, ?, ?)',
-      args: [codigo, docente_id, duracion, capacidad, game_url]
-    });
-    res.json({ status: 'success', codigo });
-  } catch (e) {
-    res.status(500).json({ error: 'No se pudo crear la sala' });
-  }
-});
-
-// --- DASHBOARD DOCENTE: RESUMEN GLOBAL ---
-apiRouter.get('/docente/resumen-global/:id', async (req, res) => {
-  try {
-    const totalSalas = await db.execute({ sql: "SELECT COUNT(*) as count FROM salas WHERE docente_id = ?", args: [req.params.id] });
-    
-    const totalEstudiantes = await db.execute({ 
-      sql: "SELECT COUNT(DISTINCT estudiante_id) as count FROM participantes_sala ps JOIN salas s ON ps.sala_id = s.id WHERE s.docente_id = ?", 
-      args: [req.params.id] 
-    });
-    
-    const promedioGeneral = await db.execute({ 
-      sql: "SELECT AVG(score) as avg FROM progreso_estudiante pe JOIN usuarios u ON pe.estudiante_id = u.id JOIN participantes_sala ps ON u.id = ps.estudiante_id JOIN salas s ON ps.sala_id = s.id WHERE s.docente_id = ?", 
-      args: [req.params.id] 
-    });
-
-    const metricasCiber = await db.execute({
-      sql: `SELECT SUM(p.aciertos) as total_a, SUM(p.errores) as total_e 
-            FROM progreso_estudiante p 
-            JOIN participantes_sala ps ON p.estudiante_id = ps.estudiante_id 
-            JOIN salas s ON ps.sala_id = s.id 
-            WHERE s.docente_id = ?`,
-      args: [req.params.id]
-    });
-
-    const solicitudesP = await db.execute({
-      sql: "SELECT COUNT(*) as count FROM help_requests WHERE teacher_id = ? AND status = 'pending'",
-      args: [req.params.id]
-    });
-
-    res.json({
-      salas_activas: totalSalas.rows[0].count,
-      estudiantes_totales: totalEstudiantes.rows[0].count,
-      rendimiento_promedio: Math.round(promedioGeneral.rows[0].avg || 0),
-      total_aciertos: metricasCiber.rows[0].total_a || 0,
-      total_errores: metricasCiber.rows[0].total_e || 0,
-      ayudas_pendientes: solicitudesP.rows[0].count || 0
-    });
-  } catch (e) {
-    res.status(500).json({ error: 'Error al generar resumen global' });
-  }
-});
-
 // --- NUEVO: TOP ALUMNOS (Ranking del Docente) ---
 apiRouter.get('/docente/top-performers/:id', authenticateToken, async (req, res) => {
   try {
@@ -721,45 +665,6 @@ apiRouter.get('/docente/analisis-detallado/:id', authenticateToken, async (req, 
   } catch (e) {
     res.status(500).json({ error: 'Error al generar análisis detallado: ' + e.message });
   }
-});
-
-// --- NUEVO: DETALLE DE PROGRESO POR NIVEL DE UN ESTUDIANTE ---
-// Permite al profesor ver el historial completo de un alumno específico
-apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, authorizeRole('profesor'), async (req, res) => {
-    try {
-        // SEGURIDAD: Verificar que el estudiante pertenece a alguna sala del docente que consulta
-        const vinculacion = await db.execute({
-            sql: `SELECT 1 FROM participantes_sala ps 
-                  JOIN salas s ON ps.sala_id = s.id 
-                  WHERE ps.estudiante_id = ? AND s.docente_id = ? LIMIT 1`,
-            args: [req.params.idEstudiante, req.user.id]
-        });
-
-        if (vinculacion.rows.length === 0) {
-            return res.status(403).json({ error: "No tienes permiso para auditar a este estudiante." });
-        }
-
-        // Obtener info del usuario y su progreso
-        const infoUsuario = await db.execute({
-            sql: "SELECT username, cedula FROM usuarios WHERE id = ?",
-            args: [req.params.idEstudiante]
-        });
-
-        const progreso = await db.execute({
-            sql: `SELECT nivel_id, score, aciertos, errores, fecha_actualizacion 
-                  FROM progreso_estudiante 
-                  WHERE estudiante_id = ? 
-                  ORDER BY nivel_id ASC`,
-            args: [req.params.idEstudiante]
-        });
-
-        res.json({
-            estudiante: infoUsuario.rows[0],
-            historial: progreso.rows
-        });
-    } catch (e) {
-        res.status(500).json({ error: 'Error al obtener detalle individual: ' + e.message });
-    }
 });
 
 apiRouter.get('/docente/stats/:id', authenticateToken, async (req, res) => {
