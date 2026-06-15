@@ -79,9 +79,9 @@ agregarMision(
 
 agregarMision(
     2, "Nivel 2: SQL Injection", "Sanitización de Inputs", 
-    "REQUISITOS: Localizar la terminal central y completar el protocolo de sanitización SQL exitosamente.", 
-    1500, 1200, "Océano", "consola", // Misión 2: Arquitecto
-    { nombre: "Arquitecto", mensaje: "Agente, soy el Arquitecto de este sector. Un ataque de inyección SQL ha comprometido nuestros sistemas. Necesitamos que localices la terminal central y ejecutes el protocolo de sanitización. El comando clave es 'ADMIN_PASS_99'. ¡La integridad de nuestros datos depende de ti!" },
+    "REQUISITOS: 1. Localizar la TERMINAL CENTRAL (marcada en el radar). 2. Escribir los comandos de sanitización en la consola.", 
+    1500, 1200, "Océano de Datos", "consola", 
+    { nombre: "Arquitecto", mensaje: "¡Agente! Han inyectado código malicioso en nuestro Océano de Datos. Localiza la TERMINAL CENTRAL marcada en tu radar. Una vez allí, deberás escribir exactamente los comandos de seguridad que el sistema te pida para limpiar la base de datos. ¡Rápido!" },
     { nombre: "BUFFER-OVERFLOW", vida: 8, color: "#38bdf8", attackType: "ray" },
     2, // Referencia a la pregunta de misión 2
     1  // 1 Terminal (misionObjetivoRealizado)

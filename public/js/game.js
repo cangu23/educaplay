@@ -1787,7 +1787,10 @@ function dibujar() {
             
             // EFECTO DE VISIBILIDAD: Brillo si es necesaria para la misión
             const mision = misiones[misionActivaIndex];
-            const esNecesaria = mision && (mision.tipo === "consola" || mision.tipo === "combate_consola" || mision.tipo === "final_consola");
+            const distAMision = mision ? Math.hypot(d.x - mision.x, d.y - mision.y) : 999;
+            const esTerminalCentral = mision && mision.tipo === "consola" && distAMision < 200;
+            const esNecesaria = mision && (esTerminalCentral || mision.tipo === "combate_consola" || mision.tipo === "final_consola");
+
             if (esNecesaria) {
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = "#4ade80";
@@ -1803,8 +1806,9 @@ function dibujar() {
                 if (Math.random() > 0.7) ctx.fillText("SYSTEM ERR", d.x + 19, d.y + 12);
 
                 if (esNecesaria) {
-                    ctx.fillStyle = "#4ade80"; ctx.font = "bold 8px Arial";
-                    ctx.fillText("[E] ACCEDER SISTEMA", d.x + 10, d.y - 5);
+                    ctx.fillStyle = "#4ade80"; ctx.font = "bold 10px Arial";
+                    const label = esTerminalCentral ? "TERMINAL CENTRAL" : "ACCEDER SISTEMA";
+                    ctx.fillText(`[E] ${label}`, d.x, d.y - 10);
                     if (teclas['e'] && !consolaActiva && !juegoPausado) {
                     const cat = dimensionActual === "Océano" ? "sql" : (dimensionActual === "Bosque" ? "ssl" : (dimensionActual === "Núcleo" ? "patch" : "network"));
                     iniciarCombateConsola(cat, () => {
@@ -2706,7 +2710,11 @@ function actualizarHUD() {
                 { text: "Abrir el Nodo de Datos (Cofre)", completed: chestOpened }
             ];
         } else if (mis.tipo === "consola") {
-            objectivesStatus = [{ text: "Completar sanitización SQL", completed: misionObjetivoRealizado }];
+                objectivesStatus = [
+                    { text: "Localizar Terminal Central", completed: false }, // Se marca al estar cerca
+                    { text: "Completar sanitización SQL", completed: misionObjetivoRealizado }
+                ];
+                if (Math.hypot(jugador.x - mis.x, jugador.y - mis.y) < 200) objectivesStatus[0].completed = true;
         } else if (mis.tipo === "combate_consola") {
             const collectedCerts = jugador.missionInventory.filter(item => item.tipo === "codigo").length;
             objectivesStatus = [
