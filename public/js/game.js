@@ -3227,7 +3227,14 @@ function mostrarReporteFinal() {
     const closeBtn = domCache.closeBtn;
     closeBtn.classList.remove("hidden");
     closeBtn.innerText = "ENVIAR INFORME AL PROFESOR";
-    closeBtn.onclick = () => window.location.href = "student_dashboard.html"; // Use domCache.quizModal
+    closeBtn.onclick = () => {
+        const rol = localStorage.getItem('rol');
+        if (rol === 'profesor') {
+            window.location.href = "teacher_dashboard.html";
+        } else {
+            window.location.href = "student_dashboard.html";
+        }
+    };
 }
 
 function iniciarCombateConsola(tipo, callbackExito) {
