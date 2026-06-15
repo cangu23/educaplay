@@ -58,7 +58,7 @@ async function initDB() {
     ];
 
     for (const user of demoUsers) {
-      const hashed = bcrypt.hashSync(user.p, 10);
+      const hashed = await bcrypt.hash(user.p, 10);
       await db.execute({
         sql: "INSERT OR IGNORE INTO usuarios (username, password, rol, cedula) VALUES (?, ?, ?, ?)",
         args: [user.u, hashed, user.r, user.c]
@@ -115,9 +115,8 @@ apiRouter.post('/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios: Usuario, Contraseña, Rol y Cédula' });
   }
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
-
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
     await db.execute({
       sql: 'INSERT INTO usuarios (username, password, rol, cedula) VALUES (?, ?, ?, ?)',
       args: [username, hashedPassword, rol, cedula]
@@ -140,8 +139,8 @@ apiRouter.post('/auth/recover-password', async (req, res) => {
     return res.status(400).json({ error: 'Faltan datos para la recuperación' });
   }
 
-  const hashedPassword = bcrypt.hashSync(newPassword, 10);
   try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     const result = await db.execute({
       sql: 'UPDATE usuarios SET password = ? WHERE username = ? AND cedula = ?',
       args: [hashedPassword, username, cedula]
@@ -164,7 +163,7 @@ apiRouter.post('/auth/login', async (req, res) => {
   try {
     const result = await db.execute({ sql: 'SELECT * FROM usuarios WHERE username = ? OR cedula = ?', args: [identifier, identifier] });
     const user = result.rows[0];
-    if (user && bcrypt.compareSync(password, user.password)) {
+    if (user && await bcrypt.compare(password, user.password)) {
       res.json({ status: 'success', user: { id: user.id, username: user.username, rol: user.rol } });
     } else { res.status(401).json({ error: 'Credenciales inválidas' }); }
   } catch (e) {
