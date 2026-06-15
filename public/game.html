@@ -543,6 +543,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="js/game.js"></script>
     <script>
+        // Capturador de errores para depuración sin Consola
+        window.onerror = function(message, source, lineno, colno, error) {
+            const errorMsg = `❌ ERROR DETECTADO:\n\nMensaje: ${message}\nArchivo: ${source}\nLínea: ${lineno}`;
+            alert(errorMsg);
+            document.body.innerHTML += `<div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:20px;font-family:monospace;">${errorMsg}</div>`;
+            return false;
+        };
+
+        // Fail-safe: Quitar pantalla de carga tras 5 segundos si el script principal falla
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+                loadingScreen.classList.add('hidden');
+            }
+        }, 5000);
+
         function updateTimer() {
             fetch(`/api/salas/status/${localStorage.getItem('salaId')}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }

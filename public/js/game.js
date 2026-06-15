@@ -405,19 +405,6 @@ let decoraciones = [
     { x: 100, y: 500, tipo: "casa", dimension: "Pueblo" }, { x: 300, y: 600, tipo: "lampara", dimension: "Pueblo" },
     { x: 1800, y: 1200, tipo: "banco", dimension: "Pueblo" }, { x: 2200, y: 500, tipo: "casa", dimension: "Pueblo" }
 ];
-
-let items = []; // Ahora se pueblan dinámicamente por nivel en spawnEnemigos
-
-let cofres = []; // Ahora se pueblan dinámicamente por nivel
-
-const secretos = [
-    { x: 500, y: 800, activo: true }, { x: 1500, y: 200, activo: true }, { x: 2000, y: 1500, activo: true },
-    { x: 700, y: 100, activo: true }, { x: 1800, y: 1200, activo: true }
-];
-
-let enemigos = [];
-let collisionData = null; // No se usará para colisiones de imagen, pero se mantiene para compatibilidad con puedeCaminar
-
 function cargarNivel(nombre, onReadyCallback, esContinuacion = false) {
     console.log("Iniciando carga de dimensión:", nombre);
     dimensionActual = nombre; // CRÍTICO: Sincronizar la dimensión actual para que los objetos se dibujen
