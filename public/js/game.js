@@ -808,7 +808,17 @@ window.addEventListener('load', () => {
 });
 
 const teclas = {};
-window.onkeydown = (e) => { teclas[e.key] = true; };
+window.onkeydown = (e) => { 
+    teclas[e.key] = true; 
+    
+    // Toggle pausa del juego con 'P' o 'Esc'
+    if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && 
+        estadoJuego === "JUGANDO" && 
+        domCache.quizModal.classList.contains("hidden") && 
+        !consolaActiva) {
+        juegoPausado = !juegoPausado;
+    }
+};
 window.onkeyup = (e) => { teclas[e.key] = false; };
 
 // Evitar que el personaje siga caminando si la ventana pierde el foco
@@ -1661,6 +1671,70 @@ function updateGame() {
             type: 'portal_swirl'
         });
     }
+}
+
+/**
+ * Dibuja un overlay de pausa de alta calidad estilo "System Breach".
+ */
+function dibujarOverlayPausa() {
+    if (!ctx) return;
+    
+    ctx.save();
+    // Reset transform para dibujar relativo a la pantalla, no a la cámara
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // 1. Capa de oscurecimiento con tinte azulado profundo
+    ctx.fillStyle = "rgba(5, 5, 10, 0.88)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Scanlines dinámicas
+    ctx.strokeStyle = "rgba(250, 204, 21, 0.04)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < canvas.height; i += 6) {
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+    }
+
+    // 3. Vignette Invertido (Brillo en bordes)
+    const grd = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 200, canvas.width/2, canvas.height/2, canvas.width);
+    grd.addColorStop(0, "transparent");
+    grd.addColorStop(1, "rgba(250, 204, 21, 0.15)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    // 4. Texto Central con Efecto Glitch
+    ctx.textAlign = "center";
+    ctx.font = "bold 70px 'Courier New'";
+    
+    // Sombra de error (Glitch Rojo)
+    ctx.fillStyle = "#ef4444";
+    ctx.fillText("SISTEMA EN PAUSA", centerX + (Math.random()-0.5)*8, centerY + (Math.random()-0.5)*4);
+    
+    // Texto Principal Neón
+    ctx.fillStyle = "#facc15";
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = "#facc15";
+    ctx.fillText("SISTEMA EN PAUSA", centerX, centerY);
+    ctx.shadowBlur = 0;
+
+    // 5. Instrucción pulsante debajo
+    const pulse = (Math.sin(Date.now() * 0.005) + 1) / 2;
+    ctx.globalAlpha = 0.4 + (pulse * 0.6);
+    ctx.font = "20px 'Courier New'";
+    ctx.fillStyle = "#fff";
+    ctx.fillText("PRESIONA [ESC] O [P] PARA REANUDAR OPERACIÓN", centerX, centerY + 70);
+    ctx.globalAlpha = 1.0;
+
+    // 6. Meta-datos en esquinas
+    ctx.textAlign = "left";
+    ctx.font = "12px monospace";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.fillText(`AGENTE: ${localStorage.getItem('username')?.toUpperCase() || 'ANON'} // NIVEL: ${dimensionActual}`, 40, canvas.height - 40);
+    ctx.fillText(`ENCRYPTION: AES-256_ACTIVE // STATUS: HOLD`, 40, canvas.height - 25);
+
+    ctx.restore();
 }
 
 function dibujar() {
@@ -2522,6 +2596,11 @@ function dibujar() {
         ctx.shadowColor = "rgba(99, 102, 241, 0.8)";
         ctx.fillText("¡MISIÓN COMPLETADA!", canvas.width / 2, 100);
         ctx.restore();
+    }
+
+    // --- NUEVO: DIBUJAR PAUSA SOBRE TODO ---
+    if (juegoPausado && estadoJuego === "JUGANDO" && !nivelCompletado && !isCountingDown && !consolaActiva && domCache.quizModal.classList.contains("hidden")) {
+        dibujarOverlayPausa();
     }
 
     if (estadoJuego === "JUGANDO") {
