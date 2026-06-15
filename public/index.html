@@ -188,6 +188,15 @@
     </footer>
 
             <script>
+                // Capturador de errores para depuración sin Consola
+                window.onerror = function(message, source, lineno, colno, error) {
+                    const errorMsg = `❌ ERROR DETECTADO:\n\nMensaje: ${message}\nArchivo: ${source}\nLínea: ${lineno}`;
+                    alert(errorMsg);
+                    // También lo intentamos escribir en el cuerpo del documento
+                    document.body.innerHTML += `<div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:20px;font-family:monospace;">${errorMsg}</div>`;
+                    return false;
+                };
+
                 // Control de la pantalla de bienvenida
                 window.addEventListener('load', () => {
                     setTimeout(() => {
