@@ -317,7 +317,7 @@ function startup() {
             logoutBtn.style.zIndex = "10001";
             logoutBtn.className = "btn btn-secondary";
             logoutBtn.onclick = () => window.logout();
-            document.body.appendChild(logoutBtn);
+            domCache.gameContainer.appendChild(logoutBtn);
         }
 
         // --- MEJORA: AUTOGUARDADO / AUTO-RECUPERACIÓN ---
@@ -350,7 +350,7 @@ function renderProfileButton() {
     profileBtn.style.top = "20px";
     profileBtn.style.transform = "none";
     profileBtn.onclick = () => showProfileModal();
-    document.body.appendChild(profileBtn);
+    domCache.gameContainer.appendChild(profileBtn);
 }
 
 /**
@@ -360,6 +360,7 @@ async function showProfileModal() {
     const userId = localStorage.getItem('userId');
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('rol');
+    console.log("showProfileModal: Detected role from localStorage:", role);
 
     if (!userId || !token) {
         window.location.href = 'index.html';
@@ -428,7 +429,7 @@ function renderTeacherButton() {
     adminBtn.className = "btn btn-primary floating-dashboard-btn";
     adminBtn.style.left = "50%";
     adminBtn.onclick = () => window.location.href = 'teacher_dashboard.html';
-    document.body.appendChild(adminBtn);
+    domCache.gameContainer.appendChild(adminBtn);
 }
 
 /**
@@ -440,7 +441,7 @@ function renderStudentButton() {
     studentBtn.className = "btn btn-secondary floating-dashboard-btn";
     studentBtn.style.left = "40%"; 
     studentBtn.onclick = () => window.location.href = 'student_dashboard.html';
-    document.body.appendChild(studentBtn);
+    domCache.gameContainer.appendChild(studentBtn);
 }
 
 // Asegurar inicio correcto

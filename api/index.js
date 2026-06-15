@@ -137,9 +137,12 @@ apiRouter.use((req, res, next) => {
 apiRouter.post('/salas/crear', authenticateToken, authorizeRole('profesor'), async (req, res) => {
   try {
     const { docente_id, duracion, capacidad, game_url } = req.body;
-    if (req.user.id != docente_id) {
+    
+    // Aseguramos comparación numérica para evitar fallos de tipos
+    if (Number(req.user.id) !== Number(docente_id)) {
       return res.status(403).json({ error: 'No autorizado para crear salas en nombre de otro docente.' });
     }
+
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
     await db.execute({
       sql: 'INSERT INTO salas (codigo_unico, docente_id, duracion_minutos, capacidad_max, game_url) VALUES (?, ?, ?, ?, ?)',
@@ -147,6 +150,7 @@ apiRouter.post('/salas/crear', authenticateToken, authorizeRole('profesor'), asy
     });
     res.json({ status: 'success', codigo });
   } catch (e) {
+    console.error("Error en DB al crear sala:", e);
     res.status(500).json({ error: 'No se pudo crear la sala: ' + e.message });
   }
 });

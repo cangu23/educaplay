@@ -17,6 +17,7 @@ window.logout = function() {
 
 async function initDashboard() {
     // Validación estricta pero informativa
+    console.log("Teacher Dashboard: Checking credentials. DocenteId:", docenteId, "UserRole:", userRole);
     if (!docenteId || !token || String(userRole).toLowerCase() !== 'profesor') {
         console.error("Acceso denegado: Credenciales insuficientes o rol incorrecto.", { docenteId, userRole });
         window.location.href = 'index.html';
@@ -93,7 +94,9 @@ async function deleteSala(id) {
 async function crearNuevaSala() {
     const duracion = prompt("Duración de la sala (minutos):", "60");
     const capacidad = prompt("Capacidad máxima de alumnos:", "30");
-    
+
+    // Re-verificar ID antes de enviar
+    const currentDocenteId = localStorage.getItem('userId');
     if (!duracion || !capacidad) return;
 
     const res = await fetch('/api/salas/crear', {
@@ -103,7 +106,7 @@ async function crearNuevaSala() {
             'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-            docente_id: docenteId,
+            docente_id: currentDocenteId,
             duracion: parseInt(duracion),
             capacidad: parseInt(capacidad),
             game_url: 'local'
