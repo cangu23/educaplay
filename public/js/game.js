@@ -97,12 +97,14 @@ function playMelodyLoop() {
 // --- SISTEMA DE NARRACIÓN (TTS) ---
 let currentSpeechRate = 1.0;
 let lastSpokenText = ""; // Almacena el último texto para la función de rebobinar
+let isSpeechPaused = false;
 
 function speakText(text) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     
     lastSpokenText = text; // Guardamos el texto actual
+    isSpeechPaused = false;
     if (domCache.speechControls) domCache.speechControls.classList.remove("hidden"); // Mostrar controles al empezar a hablar
 
     // Resetear el icono del botón de pausa al iniciar nueva locución
@@ -141,11 +143,13 @@ function rewindSpeech() {
 }
 
 function togglePauseSpeech() {
-    if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume(); // Use domCache.pauseSpeechBtn
+    if (isSpeechPaused) {
+        window.speechSynthesis.resume();
+        isSpeechPaused = false;
         if (domCache.pauseSpeechBtn) domCache.pauseSpeechBtn.innerText = "⏸";
     } else {
-        window.speechSynthesis.pause(); // Use domCache.pauseSpeechBtn
+        window.speechSynthesis.pause();
+        isSpeechPaused = true;
         if (domCache.pauseSpeechBtn) domCache.pauseSpeechBtn.innerText = "▶";
     }
 }
@@ -812,11 +816,11 @@ window.onkeydown = (e) => {
     teclas[e.key] = true; 
     
     // Toggle pausa del juego con 'P' o 'Esc'
-    if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && 
-        estadoJuego === "JUGANDO" && 
-        domCache.quizModal.classList.contains("hidden") && 
-        !consolaActiva) {
-        juegoPausado = !juegoPausado;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        if (estadoJuego === "JUGANDO" && domCache.quizModal.classList.contains("hidden") && !consolaActiva) {
+            e.preventDefault(); // Evita conflictos con el navegador
+            juegoPausado = !juegoPausado;
+        }
     }
 };
 window.onkeyup = (e) => { teclas[e.key] = false; };

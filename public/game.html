@@ -542,19 +542,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="js/game.js"></script>
     <script>
-        // Control de pausa manual
-        window.addEventListener('keydown', (e) => {
-            if (e.key === "Escape" && estadoJuego === "JUGANDO") {
-                juegoPausado = !juegoPausado;
-                if (juegoPausado) {
-                    document.getElementById("loading-screen").classList.remove("hidden");
-                    document.querySelector("#loading-screen h2").innerText = "JUEGO EN PAUSA";
-                } else {
-                    document.getElementById("loading-screen").classList.add("hidden");
-                }
-            }
-        });
-
         function updateTimer() {
             fetch(`/api/salas/status/${localStorage.getItem('salaId')}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
