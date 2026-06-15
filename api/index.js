@@ -20,12 +20,15 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Inicialización segura de la base de datos
 let db;
 try {
-  if (!process.env.TURSO_URL || !process.env.TURSO_TOKEN) {
-    console.warn("ADVERTENCIA: Faltan variables de entorno TURSO_URL o TURSO_TOKEN. La base de datos no funcionará.");
+  const url = process.env.TURSO_URL;
+  const token = process.env.TURSO_TOKEN;
+
+  if (!url || !token) {
+    console.error("CRITICAL: Missing Turso configuration. URL present:", !!url, "Token present:", !!token);
   } else {
     db = createClient({
-      url: process.env.TURSO_URL,
-      authToken: process.env.TURSO_TOKEN,
+      url: url,
+      authToken: token,
     });
   }
 } catch (err) {
