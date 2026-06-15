@@ -30,7 +30,10 @@
             e.preventDefault();
             const res = await fetch('/api/salas/crear', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${localStorage.getItem('token')}` 
+                },
                 body: JSON.stringify({
                     docente_id: localStorage.getItem('userId'),
                     duracion: document.getElementById('duracion').value,

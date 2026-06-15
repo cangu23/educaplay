@@ -1,7 +1,8 @@
 const docenteId = localStorage.getItem('userId');
+const token = localStorage.getItem('token');
 
 async function initDashboard() {
-    if (!docenteId) return window.location.href = 'index.html';
+    if (!docenteId || !token) return window.location.href = 'index.html';
     
     await loadStats();
     await loadRooms();
@@ -10,7 +11,9 @@ async function initDashboard() {
 }
 
 async function loadStats() {
-    const res = await fetch(`/api/docente/resumen-global/${docenteId}`);
+    const res = await fetch(`/api/docente/resumen-global/${docenteId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
     const data = await res.json();
     
     document.getElementById('total-estudiantes').innerText = data.estudiantes_totales;
@@ -19,7 +22,9 @@ async function loadStats() {
 }
 
 async function loadRooms() {
-    const res = await fetch(`/api/docente/stats/${docenteId}`);
+    const res = await fetch(`/api/docente/stats/${docenteId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
     const rooms = await res.json();
     const container = document.getElementById('rooms-container');
     
@@ -40,7 +45,10 @@ async function deleteSala(id) {
     
     const res = await fetch('/api/salas/borrar', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ sala_id: id, docente_id: docenteId })
     });
     
@@ -51,7 +59,9 @@ async function deleteSala(id) {
 }
 
 async function loadChart() {
-    const res = await fetch(`/api/docente/analisis-detallado/${docenteId}`);
+    const res = await fetch(`/api/docente/analisis-detallado/${docenteId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
     const data = await res.json();
     
     const ctx = document.getElementById('analyticsChart').getContext('2d');
@@ -88,7 +98,9 @@ async function loadChart() {
 }
 
 async function loadStudentsTable() {
-    const res = await fetch(`/api/docente/resultados/${docenteId}`);
+    const res = await fetch(`/api/docente/resultados/${docenteId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
     const students = await res.json();
     const tbody = document.getElementById('students-table-body');
     
@@ -134,7 +146,9 @@ async function viewStudentDetail(id, nombre) {
     modal.classList.remove("hidden");
 
     try {
-        const res = await fetch(`/api/docente/detalle-estudiante/${id}`);
+        const res = await fetch(`/api/docente/detalle-estudiante/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         const data = await res.json();
 
         if (!data || data.length === 0) {
