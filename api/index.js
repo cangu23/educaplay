@@ -372,9 +372,10 @@ apiRouter.post('/auth/recover-password', async (req, res) => {
 });
 
 apiRouter.post('/auth/login', async (req, res) => {
-  // Aceptamos 'identifier', 'username' o 'cedula' para evitar errores del frontend
-  const identifier = req.body.identifier || req.body.username || req.body.cedula;
+  // Programación defensiva: aceptamos múltiples nombres de campo
+  const identifier = req.body.identifier || req.body.username || req.body.cedula || req.body.user;
   const { password } = req.body;
+  const rol = req.body.rol;
 
   if (!identifier || !password) {
     return res.status(400).json({ error: 'Usuario o Cédula y contraseña requeridos' });
