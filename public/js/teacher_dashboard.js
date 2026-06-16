@@ -109,7 +109,8 @@ async function loadStudentsTable() {
             ? Math.round((s.total_aciertos / (s.total_aciertos + s.total_errores)) * 100) 
             : 0;
         
-        const totalLevels = (typeof misiones !== 'undefined') ? misiones.length : 5;
+        // Fallback dinámico si misiones no está cargado
+        const totalLevels = (window.misiones && misiones.length) ? misiones.length : 5;
         const progressionPercent = Math.round((s.max_nivel_id / totalLevels) * 100);
             
         let badgeClass = 'badge-success';
@@ -125,7 +126,7 @@ async function loadStudentsTable() {
 
         return `
             <tr>
-                <td style="font-weight: bold;">${s.alumno_nombre.toUpperCase()}</td>
+                <td style="font-weight: bold;">${document.createTextNode(s.alumno_nombre.toUpperCase()).wholeText}</td>
                 <td>Nivel ${s.max_nivel_id} (${progressionPercent}%)</td>
                 <td class="score-val">${s.total_score} PTS</td>
                 <td>

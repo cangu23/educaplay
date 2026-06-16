@@ -16,7 +16,11 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Secreto para JWT (En producción usar una variable de entorno JWT_SECRET)
-const JWT_SECRET = process.env.JWT_SECRET || 'eduplay_ultra_secret_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error("CRITICAL ERROR: JWT_SECRET is not defined in production environment.");
+  process.exit(1);
+}
 
 // Servir archivos estáticos (Necesario para local y como respaldo en Vercel)
 app.use(express.static(path.join(__dirname, '../public')));
@@ -74,7 +78,8 @@ async function initDB() {
       `CREATE TABLE IF NOT EXISTS chat_mensajes (id INTEGER PRIMARY KEY AUTOINCREMENT, sala_id INTEGER, username TEXT, mensaje TEXT, fecha DATETIME DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS friends (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id1 INTEGER, user_id2 INTEGER, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id1, user_id2))`,
       `CREATE TABLE IF NOT EXISTS help_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, teacher_id INTEGER, points_requested INTEGER, grade_points_equivalent REAL, status TEXT DEFAULT 'pending', request_date DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS posiciones_jugadores (usuario_id INTEGER PRIMARY KEY, sala_id TEXT, x REAL, y REAL, color TEXT, username TEXT, last_update DATETIME DEFAULT CURRENT_TIMESTAMP)`
+      `CREATE TABLE IF NOT EXISTS posiciones_jugadores (usuario_id INTEGER PRIMARY KEY, sala_id TEXT, x REAL, y REAL, color TEXT, username TEXT, last_update DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS import_jobs (docente_id INTEGER PRIMARY KEY, progress INTEGER, last_update DATETIME DEFAULT CURRENT_TIMESTAMP)`
     ]);
 
     // Población de datos DEMO (Solo se insertan si no existen)
@@ -127,10 +132,14 @@ apiRouter.get('/', (req, res) => res.json({ message: "Eduplay API is online" }))
 
 // Middleware para verificar DB en todas las rutas de la API
 apiRouter.use((req, res, next) => {
-  if (!db) {
-    return res.status(503).json({ error: 'Servicio de base de datos no disponible temporalmente.' });
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Servicio de base de datos no disponible temporalmente.' });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno en el middleware de base de datos.' });
   }
-  next();
 });
 
 // --- GESTIÓN DE SALAS ---
@@ -876,12 +885,16 @@ apiRouter.post('/game/score', authenticateToken, async (req, res) => {
   }
 });
 
-// En producción, esto debería ir a Redis o una tabla de la DB. 
-// Para salir de beta, al menos lo asociamos a un tracking más limpio.
-const importJobs = new Map();
-
-apiRouter.get('/docente/import-progress/:id', authenticateToken, (req, res) => {
-  res.json(importJobs.get(req.params.id) || { progress: 0 });
+apiRouter.get('/docente/import-progress/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.execute({
+      sql: "SELECT progress FROM import_jobs WHERE docente_id = ?",
+      args: [req.params.id]
+    });
+    res.json(result.rows[0] || { progress: 0 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // --- IMPORTACIÓN DE NOTAS DESDE DOCUMENTO ---
@@ -925,7 +938,10 @@ apiRouter.post('/docente/importar-notas', authenticateToken, upload.single('arch
       return res.status(400).json({ error: `Faltan columnas requeridas: ${missingUpper.join(', ')}` });
     }
 
-    if (docenteId) importJobs.set(docenteId, { progress: 0 });
+    if (docenteId) {
+      await db.execute({ sql: "INSERT OR REPLACE INTO import_jobs (docente_id, progress) VALUES (?, 0)", args: [docenteId] });
+    }
+    
 
     // Procesar cada fila e insertar/actualizar en la base de datos
     for (let i = 0; i < data.length; i++) {
@@ -943,12 +959,18 @@ apiRouter.post('/docente/importar-notas', authenticateToken, upload.single('arch
 
       // Actualizar progreso en memoria
       if (docenteId) {
-        importJobs.set(docenteId, { progress: Math.round(((i + 1) / data.length) * 100) });
+        const prog = Math.round(((i + 1) / data.length) * 100);
+        await db.execute({ 
+          sql: "UPDATE import_jobs SET progress = ?, last_update = CURRENT_TIMESTAMP WHERE docente_id = ?", 
+          args: [prog, docenteId] 
+        });
       }
     }
 
     // Limpiar el progreso después de 10 segundos de haber terminado
-    if (docenteId) setTimeout(() => importJobs.delete(docenteId), 10000);
+    if (docenteId) setTimeout(async () => {
+      await db.execute({ sql: "DELETE FROM import_jobs WHERE docente_id = ?", args: [docenteId] }).catch(() => {});
+    }, 10000);
 
     res.json({ status: 'success', message: `${data.length} registros procesados correctamente.` });
   } catch (e) {

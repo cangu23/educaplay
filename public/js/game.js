@@ -172,6 +172,7 @@ function changeSpeechRate() {
 }
 
 let camX = 0, camY = 0; // Definir globalmente para que todas las funciones de dibujo las vean
+let lastTime = performance.now();
 
 // Intentar inicializar el canvas si ya existe en el DOM
 function initCanvas() {
@@ -322,6 +323,7 @@ let dimensionActual = "Archivo"; // Ajustado para coincidir con la primera misi�
 let questionsCorrectTotal = 0;
 let questionsWrongTotal = 0;
 let registroErrores = [];
+let currentLevelErrors = []; // Para almacenar errores detallados del nivel actual
 let statsPorNivel = [];
 let currentLevelCorrect = 0;
 let enemiesToSpawn = 0;
@@ -374,6 +376,9 @@ const mapas = {
     "Centro Comercial": { ambient: "#0f172a", accent: "#f472b6" },
     "Data Center": { ambient: "#020617", accent: "#22d3ee" }
 };
+
+// Tipos de objetos que bloquean el paso (Desacoplado de la lógica de colisión)
+const TIPOS_SOLIDOS = new Set(["servidor", "casa", "policia_station", "arbol", "museo", "banco", "submarino", "skyscraper", "vending_machine", "mall", "cafeteria"]);
 
 // Objetos decorativos que no están en la imagen de fondo
 let decoraciones = [
@@ -1631,8 +1636,11 @@ window.comprarItem = function(itemType, costo) {
  * Updates the game state (Physics, Input, Logic)
  * Separated from rendering for better performance and clarity.
  */
-function updateGame() {
+function updateGame(dt) {
     if (juegoPausado || estadoJuego !== "JUGANDO") return;
+    
+    // Factor de corrección para mantener la sensación actual (basado en 60fps)
+    const timeFactor = dt * 60;
 
     updateGradualSpawn();
     
@@ -1658,9 +1666,9 @@ function updateGame() {
     let currentVel = jugador.vel;
     if (teclas["Shift"] && jugador.stamina > 0) {
         currentVel = jugador.vel * 1.6;
-        jugador.stamina -= 0.8;
+        jugador.stamina -= 0.8 * timeFactor;
     } else if (jugador.stamina < jugador.staminaMax) {
-        jugador.stamina += 0.3;
+        jugador.stamina += 0.3 * timeFactor;
     }
 
     if (teclas["r"] && jugador.cooldowns.r <= 0 && jugador.bateria >= 40) {
@@ -1693,8 +1701,8 @@ function updateGame() {
     jugador.dx = dx;
     jugador.dy = dy;
 
-    let nX = jugador.x + dx * currentVel;
-    let nY = jugador.y + dy * currentVel;
+    let nX = jugador.x + dx * currentVel * timeFactor;
+    let nY = jugador.y + dy * currentVel * timeFactor;
 
     nX = Math.max(0, Math.min(nX, WORLD_WIDTH - jugador.w));
     nY = Math.max(0, Math.min(nY, WORLD_HEIGHT - jugador.h));
@@ -1792,13 +1800,15 @@ function dibujarOverlayPausa() {
     ctx.restore();
 }
 
-function dibujar() {
+function dibujar(currentTime) {
     requestAnimationFrame(dibujar);
     
     if (!ctx || !canvas) return;
     if (estadoJuego !== "JUGANDO" && estadoJuego !== "SELECCION") return;
 
-    updateGame();
+    const dt = (currentTime - lastTime) / 1000;
+    lastTime = currentTime;
+    updateGame(dt);
 
     const dx = jugador.dx;
     const dy = jugador.dy;
@@ -2839,7 +2849,8 @@ function enviarPuntajeAlServidor(aciertos = 0, errores = 0) {
             nivel_id: misiones[misionActivaIndex]?.id || 1,
             score: score, // Enviar el puntaje actual
             aciertos: aciertos,
-            errores: errores
+            errores: errores,
+            erroresDetallados: erroresDetallados // Incluir el array de errores detallados
         })
     })
     .then(response => response.json())
@@ -2923,6 +2934,9 @@ function actualizarHUD() {
                 { text: "Derrotar al Virus Maestro", completed: bossDefeated },
                 { text: "Ejecutar parche crítico en consola", completed: misionObjetivoRealizado }
             ];
+        } else {
+            // Caso por defecto para nuevas misiones no implementadas aún en el HUD
+            objectivesStatus = [{ text: "Completar objetivos de nivel", completed: misionObjetivoRealizado }];
         }
 
         const totalObjectives = objectivesStatus.length;
@@ -3094,7 +3108,14 @@ function abrirQuiz(pregunta, esBonus = false) {
                     return;
                 }
                 // Registrar error en el historial académico
-                registroErrores.push({ nivel: misionActivaIndex + 1, pregunta: pregunta.texto });
+                currentLevelErrors.push({
+                    misionId: misiones[misionActivaIndex]?.id,
+                    preguntaId: pregunta.id,
+                    preguntaTexto: pregunta.texto,
+                    respuestaCorrecta: pregunta.opciones[pregunta.correcta],
+                    respuestaEstudiante: opt, // La opción que el estudiante seleccionó
+                    timestamp: Date.now()
+                });
             }
             
             // Configurar cierre único
@@ -3131,7 +3152,7 @@ function finalizarQuizUnico(esBonus) {
         });
 
         // Enviamos el puntaje del nivel actual ANTES de incrementar el índice de misión
-        enviarPuntajeAlServidor(aciertosNivel, erroresNivel);
+        enviarPuntajeAlServidor(aciertosNivel, erroresNivel, currentLevelErrors);
         currentLevelCorrect = 0;
 
         misionActivaIndex++;
