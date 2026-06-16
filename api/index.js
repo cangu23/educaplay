@@ -709,7 +709,16 @@ apiRouter.get('/docente/detalle-estudiante/:idEstudiante', authenticateToken, au
             sql: `SELECT nivel_id, score, aciertos, errores, fecha_actualizacion FROM progreso_estudiante WHERE estudiante_id = ? ORDER BY nivel_id ASC`,
             args: [req.params.idEstudiante]
         });
-        res.json(progreso.rows);
+
+        const errores = await db.execute({
+            sql: `SELECT nivel_id, pregunta_texto, respuesta_estudiante, respuesta_correcta FROM errores_academicos WHERE estudiante_id = ? ORDER BY fecha DESC`,
+            args: [req.params.idEstudiante]
+        });
+
+        res.json({
+            progreso: progreso.rows,
+            errores: errores.rows
+        });
     } catch (e) {
         res.status(500).json({ error: 'Error al obtener detalle individual: ' + e.message });
     }

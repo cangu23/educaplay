@@ -9,6 +9,12 @@ async function initDashboard() {
         await loadRooms();
         await loadChart();
         await loadStudentsTable();
+
+        // Monitoreo táctico: Actualizar la tabla de alumnos y estadísticas cada 20 segundos automáticamente
+        setInterval(async () => {
+            await loadStats();
+            await loadStudentsTable();
+        }, 20000);
     } catch (error) {
         console.error("Error al inicializar el dashboard:", error);
         alert("Hubo un problema al conectar con el servidor. Por favor, recarga la página.");
@@ -157,9 +163,11 @@ async function viewStudentDetail(id, nombre) {
         const res = await fetch(`/api/docente/detalle-estudiante/${id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const data = await res.json();
+        const result = await res.json();
+        const progreso = result.progreso || [];
+        const errores = result.errores || [];
 
-        if (!data || data.length === 0) {
+        if (progreso.length === 0) {
             container.innerHTML = "<p style='text-align:center; padding:20px;'>El estudiante aún no tiene registros de actividad en los niveles.</p>";
             return;
         }
@@ -176,12 +184,44 @@ async function viewStudentDetail(id, nombre) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${data.map(d => {
+                    ${progreso.map(d => {
                         const total = (d.aciertos || 0) + (d.errores || 0);
                         const acc = total > 0 ? Math.round((d.aciertos / total) * 100) : 0;
+                        
+                        // Filtrar los errores específicos cometidos en este nivel
+                        const fallosNivel = errores.filter(e => e.nivel_id === d.nivel_id);
+                        let detalleFallosHtml = "";
+                        
+                        if (fallosNivel.length > 0) {
+                            // Función interna para limpiar texto y evitar XSS en los detalles
+                            const escapeHTML = (str) => {
+                                const p = document.createElement('p');
+                                p.textContent = str;
+                                return p.innerHTML;
+                            };
+
+                            detalleFallosHtml = `
+                                <div style="margin-top: 8px; padding: 10px; background: rgba(239, 68, 68, 0.05); border-radius: 6px; border: 1px dashed rgba(239, 68, 68, 0.3); text-align: left;">
+                                    <div style="color: var(--danger-color); font-weight: bold; font-size: 0.75rem; margin-bottom: 5px;">📍 ANÁLISIS DE VULNERABILIDADES (ERRORES):</div>
+                                    <ul style="margin: 0; padding-left: 15px; font-size: 0.75rem; line-height: 1.4;">
+                                        ${fallosNivel.map(f => `
+                                            <li style="margin-bottom: 6px;">
+                                                <b style="color: #fff;">P: ${escapeHTML(f.pregunta_texto)}</b><br>
+                                                <span style="color: #ff8080;">✖ Falló: ${escapeHTML(f.respuesta_estudiante)}</span><br>
+                                                <span style="color: #80ff80;">✔ Correcta: ${escapeHTML(f.respuesta_correcta)}</span>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
                         return `
                         <tr>
-                            <td>Nivel ${d.nivel_id}</td>
+                            <td style="vertical-align: top;">
+                                <div style="font-weight: bold;">Nivel ${d.nivel_id}</div>
+                                ${detalleFallosHtml}
+                            </td>
                             <td class="score-val">${d.score}</td>
                             <td style="color:var(--success-color)">${d.aciertos}</td>
                             <td style="color:var(--danger-color)">${d.errores}</td>
