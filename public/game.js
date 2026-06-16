@@ -597,21 +597,6 @@ function dispararPistola() {
     return true;
 }
 
-function lanzarEMP() {
-    screenShake = 20;
-    const range = 250;
-    for (let i = enemigos.length - 1; i >= 0; i--) {
-        const e = enemigos[i];
-        if (e.tipo !== "boss" && Math.hypot(jugador.x - e.x, jugador.y - e.y) < range) {
-            crearParticula(e.x, e.y, "#fff");
-            enemigos.splice(i, 1);
-            score += 150;
-        }
-    }
-    crearFloatingText(jugador.x, jugador.y - 40, "¡PULSO EMP!", "#38bdf8", 120);
-    play8BitSound('success');
-}
-
 function mostrarAvisoDisparo() {
     crearFloatingText(jugador.x, jugador.y - 50, "¡PISTOLA OBTENIDA! [X] DISPARAR", "#38bdf8", 180, -0.5);
     play8BitSound('collect'); // Sonido al obtener la pistola
@@ -1446,7 +1431,7 @@ function dibujarProyectilesJugador() {
     proyectilesJugador.forEach(p => {
         // No restamos camX/camY aquí porque ya estamos dentro del contexto traducido en dibujar()
         ctx.save();
-        ctx.shadowBlur = 8; // Aumentado para mayor visibilidad
+        ctx.shadowBlur = 5;
         ctx.shadowColor = "#ffb000";
         ctx.fillStyle = "#fff";
         ctx.fillRect(p.x, p.y, 4, 4);
@@ -1752,13 +1737,6 @@ function updateGame(dt) {
         }
     }
     if (jugador.cooldownDisparo > 0) jugador.cooldownDisparo--;
-
-    if ((teclas["q"] || teclas["Q"]) && jugador.cooldowns.q <= 0 && jugador.bateria >= 50) {
-        jugador.bateria -= 50;
-        jugador.cooldowns.q = 900; // 15 segundos de cooldown (60 fps * 15)
-        lanzarEMP();
-    }
-
     if (jugador.bateria < jugador.bateriaMax) jugador.bateria += 0.15;
 
     if (dx !== 0 && dy !== 0) {
@@ -1780,8 +1758,7 @@ function updateGame(dt) {
         jugador.y = nY;
     }
 
-    jugador.syncTimer = (jugador.syncTimer || 0) + dt;
-    if (jugador.syncTimer > 0.1) { syncPosition(); jugador.syncTimer = 0; }
+    if (Date.now() % 60 === 0) syncPosition();
 
     actualizarEnemigos();
     actualizarNPCs(); // Call the new NPC update function
@@ -2591,6 +2568,31 @@ function dibujar(currentTime) {
         ctx.rotate(er);
         ctx.fillStyle = "#22b14c";
         ctx.fillRect(-2, -20, 4, 20);
+        ctx.restore();
+    }
+
+    // Dibujar pistola (si la tiene)
+    if (p.tienePistola) {
+        ctx.save();
+        ctx.fillStyle = "#555"; // Color de la pistola
+        let px = 0, py = 0;
+        if (p.direccion === "Right") {
+            px = p.w; py = p.h / 2;
+            ctx.fillRect(px, py, 10, 4); // Cuerpo de la pistola
+            ctx.fillRect(px + 10, py + 1, 4, 2); // Cañón
+        } else if (p.direccion === "Left") {
+            px = -10; py = p.h / 2;
+            ctx.fillRect(px, py, 10, 4);
+            ctx.fillRect(px - 4, py + 1, 4, 2); // Cañón
+        } else if (p.direccion === "Up") {
+            px = p.w / 2 - 2; py = -10;
+            ctx.fillRect(px, py, 4, 10);
+            ctx.fillRect(px + 1, py - 4, 2, 4); // Cañón
+        } else if (p.direccion === "Down") {
+            px = p.w / 2 - 2; py = p.h;
+            ctx.fillRect(px, py, 4, 10);
+            ctx.fillRect(px + 1, py + 10, 2, 4); // Cañón
+        }
         ctx.restore();
     }
 
