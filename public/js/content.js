@@ -103,7 +103,8 @@ agregarMision(
     1400, 500, "Laboratorio", "firewall", // Misión 4: Admin-Z
     { nombre: "Admin-Z", mensaje: "Agente, soy Admin-Z. Nuestro cortafuegos ha sido vulnerado. Necesitamos urgentemente 4 'Tokens de Confianza' para reconfigurarlo. Los sensores detectan señales cerca de los terminales del NORTE. ¡Sin un firewall robusto, el sistema caerá!" },
     { nombre: "RANSOM-CORE", vida: 12, color: "#4ade80", attackType: "plasma" }, // Boss for this level
-    4 // Quiz ID
+    4, // Quiz ID
+    4  // objetivoTotal: 4 Tokens de Confianza
 );
 
 agregarMision(
@@ -112,5 +113,6 @@ agregarMision(
     1700, 1450, "Núcleo", "final_consola", // Misión 5: S.O.G.
     { nombre: "S.O.G.", mensaje: "¡Agente! Soy la conciencia del Sistema Operativo Global. Mi integridad está al 5%. Un exploit de día cero me está destruyendo. Debes encontrar la vulnerabilidad y ejecutar el parche crítico 'PATCH-FIX' en la consola central. ¡El Virus Maestro lo protege! Eres nuestra última esperanza." },
     { nombre: "ULTIMATE-EXPLOIT", vida: 25, color: "#ffffff", attackType: "ray" }, // Boss for this level
-    5 // Quiz ID
+    5, // Quiz ID
+    3  // objetivoTotal: Vulnerabilidad + Boss + Consola
 );

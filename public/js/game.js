@@ -180,14 +180,24 @@ function initCanvas() {
     if (canvas) {
         ctx = canvas.getContext("2d");
         if (ctx) {
-            canvas.width = defaultCanvasWidth;
-            canvas.height = defaultCanvasHeight;
+            // Ajustar al tamaño actual de la ventana inmediatamente
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
             ctx.imageSmoothingEnabled = false;
             return true;
         }
     }
     return false;
 }
+
+// Evento para reaccionar al cambio de tamaño de la ventana (Responsividad)
+window.addEventListener('resize', () => {
+    if (canvas && ctx) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.imageSmoothingEnabled = false;
+    }
+});
 
 // Inicializar cache de elementos del DOM
 function initDomCache() {
@@ -974,9 +984,43 @@ window.seleccionarSkin = function(buttonElement, color, esContinuacion = false) 
         }
 
         // Iniciar actualización del HUD de forma eficiente (fuera del loop de 60fps)
-        if (!window.hudUpdateInterval) window.hudUpdateInterval = setInterval(actualizarHUD, 100);
+        if (window.hudUpdateInterval) clearInterval(window.hudUpdateInterval);
+        window.hudUpdateInterval = setInterval(actualizarHUD, 100);
+
+        // Iniciar escucha de mensajes del sistema cada 5 segundos
+        if (window.messagePollInterval) clearInterval(window.messagePollInterval);
+        window.messagePollInterval = setInterval(recibirAlertasSistema, 5000);
     }, esContinuacion); // Fin del callback de cargarNivel
 };
+
+let lastMessageId = 0;
+async function recibirAlertasSistema() {
+    const salaId = localStorage.getItem('salaId');
+    if (!salaId || juegoPausado) return;
+
+    try {
+        const res = await fetch(`/api/chat/${salaId}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const mensajes = await res.json();
+        
+        // Solo procesamos los mensajes nuevos que vienen del SISTEMA o PROFESOR
+        mensajes.forEach(m => {
+            if (m.id > lastMessageId) {
+                lastMessageId = m.id;
+                if (m.username.includes('SISTEMA') || m.username.includes('PROFESOR')) {
+                    // Mostrar mensaje como alerta en pantalla
+                    crearFloatingText(jugador.x, jugador.y - 80, m.mensaje.toUpperCase(), "#facc15", 180, -0.5);
+                    // Si es un bono de vitalidad, lo aplicamos visualmente (el score ya se aplicó en DB)
+                    if (m.mensaje.includes('vitalidad')) {
+                        jugador.vidas = Math.min(jugador.vidas + 1, jugador.vidasMax);
+                        play8BitSound('success');
+                    }
+                }
+            }
+        });
+    } catch (e) { /* Error silencioso de red */ }
+}
 
 // Función de detección de colisión
 function puedeCaminar(x, y, width = jugador.w, height = jugador.h) {
@@ -1235,7 +1279,7 @@ function actualizarEnemigos() {
         do {
             ex = 300 + Math.random() * (WORLD_WIDTH - 600);
             ey = 300 + Math.random() * (WORLD_HEIGHT - 600);
-        } while(collisionData && !puedeCaminar(ex, ey));
+        } while(!puedeCaminar(ex, ey));
 
         enemigos.push({
             x: ex, y: ey,
@@ -2421,17 +2465,16 @@ function dibujar(currentTime) {
     // Solo dibujamos misiones si estamos en modo JUGANDO
     if (mision) {
         ctx.shadowBlur = 10;
-        ctx.shadowColor = assets.accent; // Color del portal según el nivel
+        ctx.shadowColor = assets.accent;
         
         if (misionProgreso >= mision.objetivoTotal) {
             ctx.fillStyle = assets.accent + "33"; // Más visible si está completo
-            // Activar el remolino del portal
+            // Activar el remolino del portal de forma permanente al completarse
             portalSwirlActive = true;
             portalSwirlX = mision.x;
             portalSwirlY = mision.y;
         } else {
-            ctx.fillStyle = "rgba(255, 176, 0, 0.1)"; // Menos visible si no está completo
-            portalSwirlActive = false; // Desactivar remolino si no está completo
+            ctx.fillStyle = "rgba(255, 176, 0, 0.1)";
         }
 
         ctx.beginPath();
@@ -2463,8 +2506,6 @@ function dibujar(currentTime) {
                 ctx.fillText(`ACCESO BLOQUEADO: RECOLECTA LOS OBJETIVOS (${misionProgreso}/${mision.objetivoTotal})`, canvas.width/2, 120);
                 ctx.restore();
             }
-        } else {
-            portalSwirlActive = false; // Desactivar remolino si el jugador se aleja
         }
     } // <-- Cierre de la condición 'if (mision)' que faltaba
 
@@ -3143,16 +3184,16 @@ function finalizarQuizUnico(esBonus) {
 
     // If it's a bonus quiz, the game needs to be unpaused immediately.
     if (!esBonus) {
-        const aciertosNivel = currentLevelCorrect;
-        const erroresNivel = 7 - aciertosNivel; // Basado en el estándar de 7 preguntas por nivel
+        const aciertosCount = currentLevelCorrect;
+        const erroresCount = Math.max(0, 7 - aciertosCount); // Asegurar que no sea negativo
 
         statsPorNivel.push({
             nivel: misionActivaIndex + 1,
-            correctas: aciertosNivel
+            correctas: aciertosCount
         });
 
         // Enviamos el puntaje del nivel actual ANTES de incrementar el índice de misión
-        enviarPuntajeAlServidor(aciertosNivel, erroresNivel, currentLevelErrors);
+        enviarPuntajeAlServidor(aciertosCount, erroresCount, currentLevelErrors);
         currentLevelCorrect = 0;
         currentLevelErrors = []; // Limpiar para el siguiente nivel
 

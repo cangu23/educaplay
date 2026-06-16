@@ -261,14 +261,15 @@ apiRouter.post('/docente/intervenir-alumno', authenticateToken, authorizeRole('p
 });
 
 // --- NUEVO: EXPORTACIÓN DE RESULTADOS (CSV READY) ---
+// --- NUEVO: EXPORTACIÓN DE RESULTADOS (POLISHED EXCEL) ---
 apiRouter.get('/docente/exportar-datos/:salaId', authenticateToken, authorizeRole('profesor'), async (req, res) => {
     try {
         const result = await db.execute({
             sql: `SELECT 
                     u.cedula, u.username, 
-                    SUM(p.score) as puntaje_total, 
-                    SUM(p.aciertos) as total_aciertos, 
-                    SUM(p.errores) as total_errores,
+                    COALESCE(SUM(p.score), 0) as puntaje_total, 
+                    COALESCE(SUM(p.aciertos), 0) as total_aciertos, 
+                    COALESCE(SUM(p.errores), 0) as total_errores,
                     MAX(p.fecha_actualizacion) as completado_en
                   FROM participantes_sala ps
                   JOIN usuarios u ON ps.estudiante_id = u.id
@@ -278,17 +279,55 @@ apiRouter.get('/docente/exportar-datos/:salaId', authenticateToken, authorizeRol
             args: [req.params.salaId]
         });
 
-        // Preparar formato CSV simple
-        let csv = "Cedula,Usuario,Puntaje,Aciertos,Errores,Fecha\n";
-        result.rows.forEach(r => {
-            csv += `${r.cedula},${r.username},${r.puntaje_total},${r.total_aciertos},${r.total_errores},${r.completado_en}\n`;
+        const worksheet = xlsx.utils.json_to_sheet(result.rows.map(r => ({
+            "Cédula": r.cedula,
+            "Agente": r.username,
+            "Puntaje Total": r.puntaje_total,
+            "Aciertos": r.total_aciertos,
+            "Errores": r.total_errores,
+            "Última Conexión": r.completado_en || 'N/A'
+        })));
+
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, "Resultados");
+
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.attachment(`reporte_sala_${req.params.salaId}.xlsx`);
+        res.send(buffer);
+    } catch (e) {
+        res.status(500).json({ error: "Error al exportar Excel: " + e.message });
+    }
+});
+
+// --- NUEVO: EXPORTACIÓN GLOBAL (CON DETALLE DE ERRORES PARA REFUERZO) ---
+apiRouter.get('/docente/exportar-global/:docenteId', authenticateToken, authorizeRole('profesor'), async (req, res) => {
+    if (req.user.id != req.params.docenteId) return res.status(403).json({ error: 'No autorizado.' });
+    try {
+        // Hoja 1: Resumen de todos los alumnos
+        const resumen = await db.execute({
+            sql: `SELECT s.codigo_unico as Sala, u.cedula as Cedula, u.username as Agente, 
+                         COALESCE(SUM(p.score), 0) as Puntaje_Total, COALESCE(SUM(p.aciertos), 0) as Aciertos, COALESCE(SUM(p.errores), 0) as Errores
+                  FROM salas s JOIN participantes_sala ps ON s.id = ps.sala_id JOIN usuarios u ON ps.estudiante_id = u.id
+                  LEFT JOIN progreso_estudiante p ON u.id = p.estudiante_id WHERE s.docente_id = ? GROUP BY s.id, u.id`,
+            args: [req.params.docenteId]
         });
 
-        res.header('Content-Type', 'text/csv');
-        res.attachment(`reporte_sala_${req.params.salaId}.csv`);
-        res.send(csv);
+        // Hoja 2: Análisis de Fallos (Para saber qué reforzar)
+        const fallos = await db.execute({
+            sql: `SELECT u.username as Agente, e.nivel_id as Nivel, e.pregunta_texto as Pregunta, e.respuesta_estudiante as Respuesta_Dada, e.respuesta_correcta as Respuesta_Correcta, e.fecha as Fecha
+                  FROM errores_academicos e JOIN usuarios u ON e.estudiante_id = u.id JOIN participantes_sala ps ON u.id = ps.estudiante_id
+                  JOIN salas s ON ps.sala_id = s.id WHERE s.docente_id = ? ORDER BY e.fecha DESC`,
+            args: [req.params.docenteId]
+        });
+
+        res.json({
+            resumen: resumen.rows,
+            fallos: fallos.rows
+        });
     } catch (e) {
-        res.status(500).json({ error: "Error al exportar: " + e.message });
+        res.status(500).json({ error: "Fallo en reporte global: " + e.message });
     }
 });
 
@@ -777,6 +816,7 @@ apiRouter.get('/docente/resultados/:id', authenticateToken, async (req, res) => 
   const salaFiltro = req.query.sala;
   let sql = `
     SELECT 
+      s.id as sala_id,
       s.codigo_unico as sala_codigo,
       s.fecha_creacion,
       u.id as alumno_id,
@@ -870,7 +910,9 @@ apiRouter.post('/salas/toggle-status', authenticateToken, async (req, res) => {
 
 apiRouter.post('/game/score', authenticateToken, async (req, res) => {
   try {
-    const { estudiante_id, nivel_id, score, aciertos, errores, erroresDetallados } = req.body;
+    const { estudiante_id, nivel_id, score, erroresDetallados } = req.body;
+    const aciertos = Number(req.body.aciertos || 0);
+    const errores = Number(req.body.errores || 0);
 
     // --- SISTEMA ANTI-CHEAT (DATOS REALES) ---
     // 1. Cada nivel tiene exactamente 7 preguntas (según content.js)
@@ -911,6 +953,12 @@ apiRouter.post('/game/score', authenticateToken, async (req, res) => {
 
 apiRouter.get('/docente/import-progress/:id', authenticateToken, async (req, res) => {
   try {
+    // Limpieza automática de trabajos obsoletos (más de 5 minutos)
+    await db.execute({
+      sql: "DELETE FROM import_jobs WHERE last_update < datetime('now', '-5 minutes')",
+      args: []
+    }).catch(() => {});
+
     const result = await db.execute({
       sql: "SELECT progress FROM import_jobs WHERE docente_id = ?",
       args: [req.params.id]

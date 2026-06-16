@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Protección contra doble clic
+            if (loginBtn && loginBtn.disabled) return;
+
             if (loginBtn) {
                 loginBtn.disabled = true;
                 loginBtn.innerText = "CONECTANDO...";
