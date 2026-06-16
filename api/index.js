@@ -16,8 +16,8 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Secreto para JWT (En producción usar una variable de entorno JWT_SECRET)
-const JWT_SECRET = process.env.JWT_SECRET || 'eduplay_fallback_secret_2024';
-if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? null : 'eduplay_fallback_secret_2024');
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.error("CRITICAL ERROR: JWT_SECRET is not defined in production environment.");
   process.exit(1);
 }

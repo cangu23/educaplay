@@ -4,10 +4,15 @@ const token = localStorage.getItem('token');
 async function initDashboard() {
     if (!docenteId || !token) return window.location.href = 'index.html';
     
-    await loadStats();
-    await loadRooms();
-    await loadChart();
-    await loadStudentsTable();
+    try {
+        await loadStats();
+        await loadRooms();
+        await loadChart();
+        await loadStudentsTable();
+    } catch (error) {
+        console.error("Error al inicializar el dashboard:", error);
+        alert("Hubo un problema al conectar con el servidor. Por favor, recarga la página.");
+    }
 }
 
 async function loadStats() {
