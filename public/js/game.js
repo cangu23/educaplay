@@ -2834,7 +2834,7 @@ function dibujar(currentTime) {
     }
 }
 
-function enviarPuntajeAlServidor(aciertos = 0, errores = 0) {
+function enviarPuntajeAlServidor(aciertos = 0, errores = 0, detalles = []) {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
 
@@ -2850,7 +2850,7 @@ function enviarPuntajeAlServidor(aciertos = 0, errores = 0) {
             score: score, // Enviar el puntaje actual
             aciertos: aciertos,
             errores: errores,
-            erroresDetallados: erroresDetallados // Incluir el array de errores detallados
+            erroresDetallados: detalles
         })
     })
     .then(response => response.json())
@@ -3154,6 +3154,7 @@ function finalizarQuizUnico(esBonus) {
         // Enviamos el puntaje del nivel actual ANTES de incrementar el índice de misión
         enviarPuntajeAlServidor(aciertosNivel, erroresNivel, currentLevelErrors);
         currentLevelCorrect = 0;
+        currentLevelErrors = []; 
 
         misionActivaIndex++;
         lanzarConfeti();
