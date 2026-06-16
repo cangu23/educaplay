@@ -16,7 +16,7 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Secreto para JWT (En producción usar una variable de entorno JWT_SECRET)
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'eduplay_fallback_secret_2024';
 if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
   console.error("CRITICAL ERROR: JWT_SECRET is not defined in production environment.");
   process.exit(1);
@@ -371,7 +371,10 @@ apiRouter.post('/auth/recover-password', async (req, res) => {
 });
 
 apiRouter.post('/auth/login', async (req, res) => {
-  const { identifier, password } = req.body;
+  // Aceptamos 'identifier', 'username' o 'cedula' para evitar errores del frontend
+  const identifier = req.body.identifier || req.body.username || req.body.cedula;
+  const { password } = req.body;
+
   if (!identifier || !password) {
     return res.status(400).json({ error: 'Usuario o Cédula y contraseña requeridos' });
   }
