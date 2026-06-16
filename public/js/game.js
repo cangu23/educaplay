@@ -597,24 +597,8 @@ function dispararPistola() {
     return true;
 }
 
-function lanzarEMP() {
-    screenShake = 20;
-    const range = 250;
-    for (let i = enemigos.length - 1; i >= 0; i--) {
-        const e = enemigos[i];
-        if (e.tipo !== "boss" && Math.hypot(jugador.x - e.x, jugador.y - e.y) < range) {
-            crearParticula(e.x, e.y, "#fff");
-            enemigos.splice(i, 1);
-            score += 150;
-        }
-    }
-    crearFloatingText(jugador.x, jugador.y - 40, "¡PULSO EMP!", "#38bdf8", 120);
-    play8BitSound('success');
-}
-
 function mostrarAvisoDisparo() {
-    crearFloatingText(jugador.x, jugador.y - 50, "¡PISTOLA OBTENIDA! [X] DISPARAR", "#38bdf8", 180, -0.5);
-    play8BitSound('collect'); // Sonido al obtener la pistola
+    console.log("¡Pistola obtenida! Presiona X para disparar.");
 }
 
 function spawnNPC(datos) {
@@ -1747,17 +1731,9 @@ function updateGame(dt) {
         if (dispararPistola()) {
             jugador.bateria -= 20;
             jugador.cooldownDisparo = 20; // Use domCache.cooldownE
-            screenShake = 5;
-            crearParticula(jugador.x + 15, jugador.y + 15, "#38bdf8"); // Partículas azules al disparar
         }
     }
     if (jugador.cooldownDisparo > 0) jugador.cooldownDisparo--;
-
-    if ((teclas["q"] || teclas["Q"]) && jugador.cooldowns.q <= 0 && jugador.bateria >= 50) {
-        jugador.bateria -= 50;
-        jugador.cooldowns.q = 900; // 15 segundos de cooldown (60 fps * 15)
-        lanzarEMP();
-    }
 
     if (jugador.bateria < jugador.bateriaMax) jugador.bateria += 0.15;
 

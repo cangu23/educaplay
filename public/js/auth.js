@@ -2,8 +2,19 @@
  * auth.js - Manejador centralizado de autenticación para Eduplay
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Se eliminó la lógica del botón del header para simplificar la interfaz.
-    // El usuario ahora interactúa directamente con el formulario de la página.
+    // --- LÓGICA DE NAVEGACIÓN (Bajar sola) ---
+    const loginHeaderBtn = document.getElementById('login-btn-header');
+    const loginCard = document.getElementById('login-card');
+
+    if (loginHeaderBtn && loginCard) {
+        loginHeaderBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Enfoque automático al primer campo después de bajar
+            const input = document.getElementById('identifier');
+            if (input) setTimeout(() => input.focus(), 800);
+        });
+    }
 
     // Lógica para manejar el envío del formulario de login
     const loginForm = document.getElementById('loginForm') || document.getElementById('form-login');
