@@ -79,7 +79,8 @@ async function initDB() {
       `CREATE TABLE IF NOT EXISTS friends (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id1 INTEGER, user_id2 INTEGER, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id1, user_id2))`,
       `CREATE TABLE IF NOT EXISTS help_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, teacher_id INTEGER, points_requested INTEGER, grade_points_equivalent REAL, status TEXT DEFAULT 'pending', request_date DATETIME DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS posiciones_jugadores (usuario_id INTEGER PRIMARY KEY, sala_id TEXT, x REAL, y REAL, color TEXT, username TEXT, last_update DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS import_jobs (docente_id INTEGER PRIMARY KEY, progress INTEGER, last_update DATETIME DEFAULT CURRENT_TIMESTAMP)`
+      `CREATE TABLE IF NOT EXISTS import_jobs (docente_id INTEGER PRIMARY KEY, progress INTEGER, last_update DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS errores_academicos (id INTEGER PRIMARY KEY AUTOINCREMENT, estudiante_id INTEGER, nivel_id INTEGER, pregunta_texto TEXT, respuesta_estudiante TEXT, respuesta_correcta TEXT, fecha DATETIME DEFAULT CURRENT_TIMESTAMP)`
     ]);
 
     // Población de datos DEMO (Solo se insertan si no existen)
@@ -859,7 +860,7 @@ apiRouter.post('/salas/toggle-status', authenticateToken, async (req, res) => {
 
 apiRouter.post('/game/score', authenticateToken, async (req, res) => {
   try {
-    const { estudiante_id, nivel_id, score, aciertos, errores } = req.body;
+    const { estudiante_id, nivel_id, score, aciertos, errores, erroresDetallados } = req.body;
 
     // --- SISTEMA ANTI-CHEAT (DATOS REALES) ---
     // 1. Cada nivel tiene exactamente 7 preguntas (según content.js)
@@ -871,6 +872,16 @@ apiRouter.post('/game/score', authenticateToken, async (req, res) => {
     const MAX_PUNTOS_POR_NIVEL = 5000; 
     if (score > MAX_PUNTOS_POR_NIVEL) {
         return res.status(400).json({ error: "Puntaje fuera de rango de seguridad." });
+    }
+
+    // Guardar errores detallados si existen
+    if (erroresDetallados && Array.isArray(erroresDetallados)) {
+      for (const err of erroresDetallados) {
+        await db.execute({
+          sql: "INSERT INTO errores_academicos (estudiante_id, nivel_id, pregunta_texto, respuesta_estudiante, respuesta_correcta) VALUES (?, ?, ?, ?, ?)",
+          args: [estudiante_id, nivel_id, err.preguntaTexto, err.respuestaEstudiante, err.respuestaCorrecta]
+        });
+      }
     }
 
     await db.execute({

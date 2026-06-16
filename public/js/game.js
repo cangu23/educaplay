@@ -2850,7 +2850,7 @@ function enviarPuntajeAlServidor(aciertos = 0, errores = 0, detalles = []) {
             score: score, // Enviar el puntaje actual
             aciertos: aciertos,
             errores: errores,
-            erroresDetallados: detalles
+            erroresDetallados: detalles // Incluir el array de errores detallados
         })
     })
     .then(response => response.json())
@@ -3154,7 +3154,7 @@ function finalizarQuizUnico(esBonus) {
         // Enviamos el puntaje del nivel actual ANTES de incrementar el índice de misión
         enviarPuntajeAlServidor(aciertosNivel, erroresNivel, currentLevelErrors);
         currentLevelCorrect = 0;
-        currentLevelErrors = []; 
+        currentLevelErrors = []; // Limpiar para el siguiente nivel
 
         misionActivaIndex++;
         lanzarConfeti();
